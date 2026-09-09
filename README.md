@@ -216,7 +216,7 @@ The unit file ships with `User=bbs` and `Group=bbs` as placeholders. Either crea
 sudo useradd --system --home /opt/rsmesh-bbs --create-home --shell /usr/sbin/nologin bbs
 
 sudo mkdir -p /opt/rsmesh-bbs
-sudo git clone <your-repo-url> /opt/rsmesh-bbs
+sudo git clone git@github.com:UnityCore/rsmesh-bbs.git /opt/rsmesh-bbs
 cd /opt/rsmesh-bbs
 python3 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
@@ -342,3 +342,12 @@ A reference implementation (disabled by default) lives in `modules/example_hello
 | `example_hello_admin.py` | Lists visit history from the admin tool |
 
 Not shown in the example (see `node_info` for these): `register_service` for other core/module code, `send_bundled` for long mesh output, `ctx.is_sysadmin()` permission checks, and mesh-side scanning of `interface.nodes`.
+
+## Thanks to
+
+- [TC²-BBS](https://github.com/TheCommsChannel/TC2-BBS-mesh)
+- [Meshtastic](https://github.com/meshtastic)
+
+## License
+
+GPL-3.0-only. See [LICENSE](LICENSE).
