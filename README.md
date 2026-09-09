@@ -333,6 +333,8 @@ Configure sync peers in the admin tool. **Ingest channels in** controls whether 
 
 Run `rsmesh-bbs_admin.py` from the project directory with the [virtual environment](#setup-virtual-environment) activated (same as the server). It manages bulletins, mail, channels, the node catalog, sync peers, modules, and bulletin delete reconciliation. Module-specific admin screens live in `modules/<name>/<name>_admin.py` and are linked from **Administration → Modules**. Shared display helpers (page headers, pagination, record detail views) are in `admin_ui.py` for use by core and module admin code.
 
+See [README-ADMIN.md](README-ADMIN.md) for a complete guide to every admin menu, input prompt, and valid choice.
+
 Sync peer and sysadmin changes made in the admin tool are picked up by the running server automatically (on the next mesh message or background worker cycle).
 
 **Administration → Backup** creates a timestamped `backup/backup_YYYYMMDDHHMMSS.zip`. SQL dumps are written briefly under `backup/staging/` (same layout as the live tree), then removed after the zip is created. The archive contains those SQL dumps (for example `rsmesh-bbs.sql`, `modules/node_info/node_info.sql`) plus `config.yml` files. Dumps use SQLite’s connection API, so WAL sidecar files are not required. Restore by unzipping and loading each `.sql` with `sqlite3 database.db < dump.sql`.
