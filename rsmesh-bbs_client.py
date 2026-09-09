@@ -3,44 +3,66 @@
 
 import argparse
 
-from rsmesh_bbs.config_init import DEFAULT_CONFIG_FILE, get_board_name, require_config_file
+from rsmesh_bbs.admin_ui import clear_screen
+from rsmesh_bbs.config_init import (
+    DEFAULT_CLIENT_CONFIG_FILE,
+    client_setup_paths,
+    get_board_name,
+    get_client_settings,
+    missing_client_setup_files,
+    print_incomplete_setup_error,
+)
 from rsmesh_bbs.db_operations import initialize_database
 from rsmesh_bbs.mesh_client import (
     BbsMeshClient,
     DEFAULT_CLIENT_LONG_NAME,
-    DEFAULT_CLIENT_NODE_ID,
-    DEFAULT_CLIENT_NODE_NUM,
-    DEFAULT_CLIENT_SHORT_NAME,
+    node_id_to_num,
 )
 from rsmesh_bbs.venv_guard import require_venv
 
 require_venv()
 
 
-def _parse_args():
-    parser = argparse.ArgumentParser(
-        description="Simulate a mesh handset talking to the local BBS (no radio).",
-    )
-    parser.add_argument(
+def _preparse_config_arg():
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument(
         "--config", "-c",
         default=None,
-        help=f"Path to config.yml (default: {DEFAULT_CONFIG_FILE})",
+        help=f"Path to config_client.yml (default: {DEFAULT_CLIENT_CONFIG_FILE})",
+    )
+    return pre_parser.parse_known_args()
+
+
+def _parse_args(remaining, config_file, client_config_file):
+    client_settings = get_client_settings(client_config_file)
+    node_id_default = client_settings["node_id"]
+    short_name_default = client_settings["short_name"]
+
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument(
+        "--config", "-c",
+        default=None,
+        help=f"Path to config_client.yml (default: {DEFAULT_CLIENT_CONFIG_FILE})",
+    )
+    parser = argparse.ArgumentParser(
+        description="Simulate a mesh handset talking to the local BBS (no radio).",
+        parents=[pre_parser],
     )
     parser.add_argument(
         "--node-id",
-        default=DEFAULT_CLIENT_NODE_ID,
-        help="Simulated client Meshtastic node ID (default: %(default)s)",
+        default=node_id_default,
+        help="Simulated client Meshtastic node ID (default: from config_client.yml)",
     )
     parser.add_argument(
         "--node-num",
         type=int,
-        default=DEFAULT_CLIENT_NODE_NUM,
-        help="Simulated client node number (default: %(default)s)",
+        default=node_id_to_num(node_id_default),
+        help="Simulated client node number (default: derived from node ID)",
     )
     parser.add_argument(
         "--short-name",
-        default=DEFAULT_CLIENT_SHORT_NAME,
-        help="Simulated client short name (default: %(default)s)",
+        default=short_name_default,
+        help="Simulated client short name (default: from config_client.yml)",
     )
     parser.add_argument(
         "--long-name",
@@ -52,7 +74,8 @@ def _parse_args():
         action="store_true",
         help="Skip mesh reply pacing delays (recommended for interactive use)",
     )
-    return parser.parse_args()
+    args = parser.parse_args(remaining)
+    return args, config_file
 
 
 def _print_replies(replies):
@@ -64,16 +87,21 @@ def _print_replies(replies):
         print()
 
 
-def main():
-    args = _parse_args()
-    config_file = require_config_file(args.config)
+def main() -> int:
+    pre_args, remaining = _preparse_config_arg()
+    missing = missing_client_setup_files(client_config_file=pre_args.config)
+    if missing:
+        print_incomplete_setup_error(missing)
+        return 1
+
+    config_path, client_path = client_setup_paths(client_config_file=pre_args.config)
+    args, config_file = _parse_args(remaining, str(config_path), str(client_path))
 
     if args.fast:
         import time
         time.sleep = lambda *_args, **_kwargs: None
 
     initialize_database(quiet=True)
-    board_name = get_board_name(config_file)
     client = BbsMeshClient.create(
         client_node_id=args.node_id,
         client_node_num=args.node_num,
@@ -81,16 +109,19 @@ def main():
         client_long_name=args.long_name,
     )
 
-    print(f"RSMesh BBS client — simulating {args.short_name} ({args.node_id})")
-    print(f"Board: {board_name}")
+    clear_screen()
+    board_name = get_board_name(config_file)
+    print(f"{board_name} Client : Node {args.short_name} ({args.node_id})")
+    print("=" * 80)
     print("Type mesh messages as you would from a handset.")
     print("Press Enter or type X for the main menu. Ctrl+C or Ctrl+D to quit.")
     print()
 
+    prompt = f"{args.short_name}> "
     try:
         while True:
             try:
-                line = input("> ").strip()
+                line = input(prompt).strip()
             except EOFError:
                 print()
                 break
@@ -101,6 +132,8 @@ def main():
     except KeyboardInterrupt:
         print("\nBye.")
 
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
