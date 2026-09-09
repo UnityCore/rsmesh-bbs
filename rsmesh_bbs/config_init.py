@@ -79,13 +79,18 @@ def load_client_config(client_config_file: Optional[str] = None) -> dict[str, An
 
 
 def get_client_settings(client_config_file: Optional[str] = None) -> dict[str, str]:
-    from .mesh_client import DEFAULT_CLIENT_NODE_ID, DEFAULT_CLIENT_SHORT_NAME
+    from .mesh_client import (
+        DEFAULT_CLIENT_LONG_NAME,
+        DEFAULT_CLIENT_NODE_ID,
+        DEFAULT_CLIENT_SHORT_NAME,
+    )
 
     config = load_client_config(client_config_file)
     client = config.get("client", {})
     return {
         "node_id": client.get("node_id", DEFAULT_CLIENT_NODE_ID),
         "short_name": client.get("short_name", DEFAULT_CLIENT_SHORT_NAME),
+        "long_name": client.get("long_name", DEFAULT_CLIENT_LONG_NAME),
     }
 
 
