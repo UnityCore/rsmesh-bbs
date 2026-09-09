@@ -40,6 +40,18 @@ class TestClientConfig:
         settings = get_client_settings(str(config_path))
         assert settings["node_id"] == "!0c0ffee0"
         assert settings["short_name"] == "COFY"
+        assert settings["long_name"] == "CLI Test User"
+
+    def test_get_client_settings_reads_long_name(self, tmp_path):
+        config_path = tmp_path / "config_client.yml"
+        config_path.write_text(
+            "client:\n"
+            "  long_name: Alice Handset\n",
+            encoding="utf-8",
+        )
+
+        settings = get_client_settings(str(config_path))
+        assert settings["long_name"] == "Alice Handset"
 
 
 class TestRequireClientSetup:

@@ -13,11 +13,7 @@ from rsmesh_bbs.config_init import (
     print_incomplete_setup_error,
 )
 from rsmesh_bbs.db_operations import initialize_database
-from rsmesh_bbs.mesh_client import (
-    BbsMeshClient,
-    DEFAULT_CLIENT_LONG_NAME,
-    node_id_to_num,
-)
+from rsmesh_bbs.mesh_client import BbsMeshClient, node_id_to_num
 from rsmesh_bbs.venv_guard import require_venv
 
 require_venv()
@@ -37,6 +33,7 @@ def _parse_args(remaining, config_file, client_config_file):
     client_settings = get_client_settings(client_config_file)
     node_id_default = client_settings["node_id"]
     short_name_default = client_settings["short_name"]
+    long_name_default = client_settings["long_name"]
 
     pre_parser = argparse.ArgumentParser(add_help=False)
     pre_parser.add_argument(
@@ -66,8 +63,8 @@ def _parse_args(remaining, config_file, client_config_file):
     )
     parser.add_argument(
         "--long-name",
-        default=DEFAULT_CLIENT_LONG_NAME,
-        help="Simulated client long name (default: %(default)s)",
+        default=long_name_default,
+        help="Simulated client long name (default: from config_client.yml)",
     )
     parser.add_argument(
         "--fast",
