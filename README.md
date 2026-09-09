@@ -216,7 +216,7 @@ The unit file ships with `User=bbs` and `Group=bbs` as placeholders. Either crea
 sudo useradd --system --home /opt/rsmesh-bbs --create-home --shell /usr/sbin/nologin bbs
 
 sudo mkdir -p /opt/rsmesh-bbs
-sudo git clone <your-repo-url> /opt/rsmesh-bbs
+sudo git clone git@github.com:UnityCore/rsmesh-bbs.git /opt/rsmesh-bbs
 cd /opt/rsmesh-bbs
 python3 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
