@@ -342,3 +342,12 @@ A reference implementation (disabled by default) lives in `modules/example_hello
 | `example_hello_admin.py` | Lists visit history from the admin tool |
 
 Not shown in the example (see `node_info` for these): `register_service` for other core/module code, `send_bundled` for long mesh output, `ctx.is_sysadmin()` permission checks, and mesh-side scanning of `interface.nodes`.
+
+## Thanks to
+
+- [TC²-BBS](https://github.com/TheCommsChannel/TC2-BBS-mesh)
+- [Meshtastic](https://github.com/meshtastic)
+
+## License
+
+GPL-3.0-only. See [LICENSE](LICENSE).
