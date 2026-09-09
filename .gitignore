@@ -1,0 +1,11 @@
+__pycache__/
+.venv/
+.pytest_cache/
+rsmesh-bbs.db
+rsmesh-bbs-nodes.db
+modules/**/*.db
+*.db-shm
+*.db-wal
+config.yml
+backup/*
+!backup/.gitkeep
