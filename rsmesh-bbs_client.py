@@ -3,7 +3,7 @@
 
 import argparse
 
-from rsmesh_bbs.admin_ui import clear_screen
+from rsmesh_bbs.admin_ui import clear_screen, input_bold, print_header_line, print_separator
 from rsmesh_bbs.config_init import (
     DEFAULT_CLIENT_CONFIG_FILE,
     client_setup_paths,
@@ -111,8 +111,9 @@ def main() -> int:
 
     clear_screen()
     board_name = get_board_name(config_file)
-    print(f"{board_name} Client : Node {args.short_name} ({args.node_id})")
-    print("=" * 80)
+    header = f"{board_name} Client : Node {args.short_name} ({args.node_id})"
+    print_header_line(header)
+    print_separator()
     print("Type mesh messages as you would from a handset.")
     print("Press Enter or type X for the main menu. Ctrl+C or Ctrl+D to quit.")
     print()
@@ -121,7 +122,7 @@ def main() -> int:
     try:
         while True:
             try:
-                line = input(prompt).strip()
+                line = input_bold(prompt).strip()
             except EOFError:
                 print()
                 break

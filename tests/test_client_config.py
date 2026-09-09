@@ -1,5 +1,6 @@
 import pytest
 
+from rsmesh_bbs.admin_ui import format_header_line
 from rsmesh_bbs.config_init import (
     get_client_settings,
     load_client_config,
@@ -8,6 +9,14 @@ from rsmesh_bbs.config_init import (
     require_client_setup,
 )
 from rsmesh_bbs.mesh_client import node_id_to_num
+
+
+class TestFormatHeaderLine:
+    def test_version_right_aligned_at_column_79(self):
+        line = format_header_line("RSTest BBS Client : Node COFY (!0c0ffee0)", "1.0.0")
+        assert len(line) == 79
+        assert line.endswith("1.0.0")
+        assert line.startswith("RSTest BBS Client")
 
 
 class TestClientConfig:
