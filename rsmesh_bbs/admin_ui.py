@@ -39,6 +39,29 @@ def input_bold(prompt):
     return input()
 
 
+def format_header_line(
+    header: str,
+    version_text: str = VERSION,
+    line_width: int = SEPARATOR_COLUMNS,
+) -> str:
+    """Format a header with version right-aligned; last character at column line_width."""
+    if len(version_text) >= line_width:
+        return version_text[-line_width:]
+    header_part = header[: line_width - len(version_text)]
+    padding = line_width - len(header_part) - len(version_text)
+    return f"{header_part}{' ' * padding}{version_text}"
+
+
+def print_header_line(header: str) -> None:
+    console.print(
+        format_header_line(header),
+        style="bold",
+        overflow="crop",
+        no_wrap=True,
+        markup=False,
+    )
+
+
 def print_page_header(menu_name=None):
     board_name = get_board_name()
     if menu_name:
@@ -46,16 +69,7 @@ def print_page_header(menu_name=None):
     else:
         header = f"{board_name} SysAdmin"
 
-    version_text = VERSION
-    line_width = SEPARATOR_COLUMNS
-    if len(version_text) >= line_width:
-        line = version_text[-line_width:]
-    else:
-        header_part = header[: line_width - len(version_text)]
-        padding = line_width - len(header_part) - len(version_text)
-        line = f"{header_part}{' ' * padding}{version_text}"
-
-    print_bold(line)
+    print_header_line(header)
     print_separator()
     console.print()
 

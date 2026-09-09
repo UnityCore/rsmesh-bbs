@@ -62,7 +62,13 @@ The server creates `rsmesh-bbs.db` in the current working directory. Module data
 
 ## Mesh client (no radio)
 
-`rsmesh-bbs_client.py` simulates a mesh handset in-process — useful for testing menus, mail, and bulletins without a Meshtastic device or running server. It uses the same `rsmesh-bbs.db` and `config.yml` as the server, but drives the BBS command handlers directly through a mock interface (no radio, no PyPubSub).
+`rsmesh-bbs_client.py` simulates a mesh handset in-process — useful for testing menus, mail, and bulletins without a Meshtastic device or running server. It uses the same `rsmesh-bbs.db` and `config.yml` as the server (for board name and other BBS settings), but drives the BBS command handlers directly through a mock interface (no radio, no PyPubSub).
+
+Simulated handset identity (`node_id`, `short_name`) is configured in `config_client.yml`. Copy the starter file before your first run:
+
+```bash
+cp example_config_client.yml config_client.yml
+```
 
 With the [virtual environment](#setup-virtual-environment) activated:
 
@@ -73,9 +79,21 @@ python rsmesh-bbs_client.py --fast
 | Flag | Purpose |
 |------|---------|
 | `--fast` | Skip mesh reply pacing delays (recommended for interactive use) |
-| `-c` / `--config` | Path to `config.yml` (default: `./config.yml`) |
-| `--node-id` | Simulated client node ID (default: `!0c0ffee0`) |
-| `--short-name` | Simulated client short name (default: `COFY`) |
+| `-c` / `--config` | Path to `config_client.yml` (default: `./config_client.yml`) |
+| `--node-id` | Simulated client node ID (default: from `config_client.yml`) |
+| `--node-num` | Simulated client node number (default: derived from node ID) |
+| `--short-name` | Simulated client short name (default: from `config_client.yml`) |
+| `--long-name` | Simulated client long name (default: `CLI Test User`) |
+
+Example `config_client.yml`:
+
+```yaml
+client:
+  node_id: "!0c0ffee0"
+  short_name: COFY
+```
+
+Command-line flags override values from `config_client.yml` when you need a one-off identity. The board banner still comes from `config.yml` in the project directory (see [Configuration reference](#configuration-reference)).
 
 Type messages as you would from a handset (single-letter menu commands such as `B`, `R`, `S`). Press Enter or type `X` for the main menu. Ctrl+C or Ctrl+D to quit.
 
@@ -92,9 +110,11 @@ rsmesh-bbs/
   modules/                # Optional mesh modules
   tests/                  # Automated tests (pytest)
   .venv/                  # Virtual environment (created locally; not in git)
-  config.yml              # Runtime configuration (not in git)
+  config.yml              # Runtime BBS configuration (not in git)
+  config_client.yml       # Simulated handset identity for the mesh client (not in git)
   backup/                 # SQL backup archives
   example_config.yml
+  example_config_client.yml
   requirements.txt
   requirements-dev.txt    # Test dependencies (pytest)
 ```
@@ -265,6 +285,7 @@ Common causes after enabling the venv-based service:
 
 | Setting | Location | Notes |
 |---------|----------|-------|
+| Simulated handset identity | `config_client.yml` `client` | `node_id` and `short_name` for `rsmesh-bbs_client.py` (see `example_config_client.yml`) |
 | Board name, superuser, event bus topic | `config.yml` `bbs` | Banner text, Urgent board permission, and PyPubSub receive topic |
 | Radio interface | `config.yml` `interface` | `serial` or `tcp`; set `port` or `hostname` as needed |
 | Peer sync interval | `config.yml` `schedule` | Minutes between retries for unsynced records |
@@ -281,7 +302,7 @@ Common causes after enabling the venv-based service:
 
 | Sysadmin nodes | `sysadmin_nodes` table | Configure with `rsmesh-bbs_admin.py` (also seeded from `superuser_node` and node catalog) |
 
-See `example_config.yml` for a commented starter configuration.
+See `example_config.yml` for a commented starter BBS configuration and `example_config_client.yml` for the mesh client handset identity.
 
 ## Channel directory
 

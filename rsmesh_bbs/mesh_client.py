@@ -18,6 +18,16 @@ DEFAULT_CLIENT_SHORT_NAME = "COFY"
 DEFAULT_CLIENT_LONG_NAME = "CLI Test User"
 
 
+def node_id_to_num(node_id: str, fallback: int = DEFAULT_CLIENT_NODE_NUM) -> int:
+    node_id = (node_id or "").strip()
+    if node_id.startswith("!"):
+        try:
+            return int(node_id[1:], 16)
+        except ValueError:
+            pass
+    return fallback
+
+
 def build_text_packet(
     from_num: int,
     from_id: str,

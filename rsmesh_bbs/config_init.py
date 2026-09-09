@@ -13,6 +13,7 @@ import yaml
 from .version import APP_NAME, VERSION
 
 DEFAULT_CONFIG_FILE = "config.yml"
+DEFAULT_CLIENT_CONFIG_FILE = "config_client.yml"
 
 
 def require_config_file(config_file: Optional[str] = None) -> str:
@@ -21,6 +22,71 @@ def require_config_file(config_file: Optional[str] = None) -> str:
         print(f"Error: configuration file not found: {path}", file=sys.stderr)
         sys.exit(1)
     return str(path)
+
+
+def require_client_config_file(client_config_file: Optional[str] = None) -> str:
+    path = Path(client_config_file or DEFAULT_CLIENT_CONFIG_FILE)
+    if not path.is_file():
+        print(f"Error: client configuration file not found: {path}", file=sys.stderr)
+        sys.exit(1)
+    return str(path)
+
+
+def client_setup_paths(
+    config_file: Optional[str] = None,
+    client_config_file: Optional[str] = None,
+) -> tuple[Path, Path]:
+    config_path = Path(config_file or DEFAULT_CONFIG_FILE)
+    client_path = Path(client_config_file or DEFAULT_CLIENT_CONFIG_FILE)
+    return config_path, client_path
+
+
+def missing_client_setup_files(
+    config_file: Optional[str] = None,
+    client_config_file: Optional[str] = None,
+) -> list[str]:
+    config_path, client_path = client_setup_paths(config_file, client_config_file)
+    return [str(path) for path in (config_path, client_path) if not path.is_file()]
+
+
+def print_incomplete_setup_error(missing: list[str]) -> None:
+    print("Error: board setup is incomplete.", file=sys.stderr)
+    if len(missing) == 1:
+        print(f"Missing configuration file: {missing[0]}", file=sys.stderr)
+    else:
+        print("Missing configuration files:", file=sys.stderr)
+        for path in missing:
+            print(f"  - {path}", file=sys.stderr)
+
+
+def require_client_setup(
+    config_file: Optional[str] = None,
+    client_config_file: Optional[str] = None,
+) -> tuple[str, str]:
+    """Ensure BBS and client config files exist before starting the mesh client."""
+    missing = missing_client_setup_files(config_file, client_config_file)
+    if missing:
+        print_incomplete_setup_error(missing)
+        raise SystemExit(1)
+    config_path, client_path = client_setup_paths(config_file, client_config_file)
+    return str(config_path), str(client_path)
+
+
+def load_client_config(client_config_file: Optional[str] = None) -> dict[str, Any]:
+    if client_config_file is None:
+        client_config_file = DEFAULT_CLIENT_CONFIG_FILE
+    return load_config(client_config_file)
+
+
+def get_client_settings(client_config_file: Optional[str] = None) -> dict[str, str]:
+    from .mesh_client import DEFAULT_CLIENT_NODE_ID, DEFAULT_CLIENT_SHORT_NAME
+
+    config = load_client_config(client_config_file)
+    client = config.get("client", {})
+    return {
+        "node_id": client.get("node_id", DEFAULT_CLIENT_NODE_ID),
+        "short_name": client.get("short_name", DEFAULT_CLIENT_SHORT_NAME),
+    }
 
 
 def load_config(config_file: Optional[str] = None) -> dict[str, Any]:

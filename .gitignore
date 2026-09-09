@@ -7,5 +7,6 @@ modules/**/*.db
 *.db-shm
 *.db-wal
 config.yml
+config_client.yml
 backup/*
 !backup/.gitkeep
