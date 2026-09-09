@@ -1,0 +1,75 @@
+################################
+##  RSMesh-BBS Configuration  ##  
+##                            ##
+##       Version 1.0.0        ##
+################################     
+
+############################
+####        BBS         ####
+############################
+# board_name - name displayed in banners and the main menu header
+# eventbus_topic - PyPubSub topic for Meshtastic receive events 
+#   (default: meshtastic.receive)
+# superuser_node - node ID with Urgent bulletin board posting permission
+# sysadmin_nodes table node_hex_username values are also granted permission
+# If neither is configured, posting to the Urgent board is disabled.
+# sync_peers table - configure peer BBS nodes with rsmesh-bbs_admin.py
+#
+# Channel directory (see README "Channel directory"):
+# - Mesh Post and sync ingest create unpublished channels (publish=N).
+# - Operator sets Publish=Y in the admin tool to list on mesh and sync out.
+# - PSKs are public directory data (shared channel keys), not secrets.
+
+bbs:
+  board_name: RSMesh BBS
+  eventbus_topic: meshtastic.receive
+  # superuser_node: "!17d7e4b7"
+
+
+###############################
+#### Select Interface type ####
+###############################
+# type: serial for USB connected devices
+# If multiple serial devices are connected, set port explicitly.
+#
+# Linux:
+#   port: /dev/ttyUSB0
+#   port: /dev/ttyACM0
+#
+# macOS:
+#   port: /dev/cu.usbmodem101
+#   (run: ls /dev/cu.*)
+#
+# Windows:
+#   port: COM3
+#
+# type: tcp for network-connected ESP32 devices (not WisBlock)
+#   hostname: 192.168.1.100
+#
+# If only one serial device is attached, port can be omitted on any OS.
+
+interface:
+  port: /dev/ttyUSB0
+  # port: /dev/ttyACM0
+  # port: COM3
+  # hostname: 192.168.1.100
+  type: serial
+  # type: tcp
+
+
+##########################
+####    Schedule      ####
+##########################
+# peer_sync_minutes - minutes between retries for unsynced 
+#   bulletin/mail/channel records
+# module_exec_minutes - interval for the core module schedule worker
+#   (modules register their own tasks within this tick)
+# sync_purge_minutes - minutes between checks to purge deleted bulletins
+# bulletin_display_age_days - days of non-pinned bulletins shown on mesh boards
+
+schedule:
+  peer_sync_minutes: 5
+  module_exec_minutes: 1
+  sync_purge_minutes: 5
+  bulletin_display_age_days: 30
+

@@ -1,0 +1,20 @@
+[Unit]
+Description=RSMesh BBS
+After=multi-user.target
+
+[Service]
+Type=simple
+# Set User and Group to the unprivileged account that owns the install tree (see README).
+User=bbs
+Group=bbs
+SupplementaryGroups=dialout
+WorkingDirectory=/opt/rsmesh-bbs
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/rsmesh-bbs/.venv/bin/python /opt/rsmesh-bbs/rsmesh-bbs_server.py -c /opt/rsmesh-bbs/config.yml
+Restart=always
+RestartSec=20
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
