@@ -484,7 +484,7 @@ Optional **operator convenience** — a notebook of nodes you want on file. Dist
 
 The BBS server uses catalog rows only for **short-name/hex ID lookup**, **mail inbox matching**, **BBS Mail Forward To**, and **BBS Admin** (sync to `sysadmin_nodes`). Fields such as `public_key`, `private_key`, `ble_pin`, `has_gps`, `hardware`, and `comment` are optional operator notes and are never read by server logic.
 
-**Mesh admin (Y/N)** is an operator reference flag only — it does not change BBS or mesh behavior. To enable remote administration on a device, configure **Radio Config → Security → Admin Settings** on that radio (add the administrator public key). Use the catalog **Public key** field optionally to record the node's key for your own fleet documentation.
+**Mesh admin (Y/N)** is an operator reference flag only — it does not change BBS or mesh behavior. Set **`Y`** when **this catalog entry is the administrator node** that will send remote config changes to other radios (not when this node is the one being administered). On each **target** radio, add **this node's public key** under **Radio Config → Security → Admin Settings** (Primary, Secondary, or Tertiary Admin Key). Configured targets will accept changes from the Mesh Admin node per Meshtastic specs; unconfigured nodes will not. The flag only documents that you have made (or intend to make) those radio-side settings. Use the catalog **Public key** field optionally to record the administrator node's key for your own fleet documentation.
 
 See [README — Node catalog (operator reference)](README.md#node-catalog-operator-reference) for the full runtime field matrix.
 
@@ -513,7 +513,7 @@ List **Admin: Y** when `mesh_admin=Y` or `bbs_admin=Y` (visual hint only for `me
 | `Long name:` | — | Yes |
 | `Short name:` | — | Yes |
 | `Node hex username (e.g. !9e9d8704):` | — | Yes |
-| `Mesh admin (Y/N) [N]:` | N | Y/N — operator reference; configure Admin Settings on the radio separately |
+| `Mesh admin (Y/N) [N]:` | N | Y/N — operator reference: this node is the remote **administrator** (its public key goes on other radios' Admin Settings) |
 | `BBS admin (Y/N) [N]:` | N | Y/N — syncs `sysadmin_nodes` when `Y` |
 | `BBS mail forward to (optional):` | — | No |
 | `Has GPS (Y/N) [N]:` | N | Y/N |

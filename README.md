@@ -452,7 +452,7 @@ The **node catalog** is a **convenience for the system operator**: an optional n
 
 You may store keys and PINs for your own reference, but the BBS never uses them for mesh or sync behavior.
 
-**Mesh Admin** (`mesh_admin`) is an operator notebook flag: it marks that you intend a device to be remotely administrable over Meshtastic. The BBS does **not** enforce mesh admin from this field. To actually allow remote admin, you must configure each radio in **Radio Config → Security → Admin Settings** (add the administrator device public key on the target node). Keep the catalog `public_key` field as your optional record of that node's key for fleet management.
+**Mesh Admin** (`mesh_admin`) is an operator notebook flag: it marks that **this catalog node is intended to perform remote administration on other nodes** — not that other nodes can administer it. A node with `mesh_admin = Y` is your administrator handset or gateway: its public key is the one you add on **other** radios under **Radio Config → Security → Admin Settings** (Primary, Secondary, or Tertiary Admin Key). Those target nodes will then accept configuration changes from the Mesh Admin node to the extent Meshtastic allows. The catalog field only records that you have set up (or plan to set up) that relationship; the BBS does **not** read `mesh_admin` and **cannot** push config to any radio that has not been configured to accept it. Use the catalog **Public key** field optionally to store the Mesh Admin node's key for your own fleet documentation.
 
 **Mesh nodes** — see [Mesh nodes vs Node Info](#mesh-nodes-vs-node-info). Operators can also add, edit, import, or purge rows in the admin tool (**Administration → Mesh Nodes**).
 
