@@ -1227,7 +1227,7 @@ def _sync_peer_alert_field(peer):
     return f"Alert: received RS v{seen}"
 
 
-def _sync_peer_flag_lines(peer):
+def _sync_peer_flag_lines(peer, last_heard_label=None):
     if len(peer) < 8:
         sync_bulletins, sync_mail, sync_channels = 'Y', 'Y', 'Y'
         sync_mesh_nodes = 'N'
@@ -1237,6 +1237,12 @@ def _sync_peer_flag_lines(peer):
         sync_mesh_nodes = peer[8] if len(peer) > 8 else 'N'
         ingest_bulletins = peer[9] if len(peer) > 9 else 'Y'
         ingest_channels = peer[10] if len(peer) > 10 else 'Y'
+    mail_line_fields = [
+        f"Mail: {sync_mail or 'Y'}",
+        f"Mesh nodes: {sync_mesh_nodes or 'N'}",
+    ]
+    if last_heard_label:
+        mail_line_fields.append(f"Last heard: {last_heard_label}")
     return [
         "  " + join_display_fields(
             f"In: bulletins {ingest_bulletins or 'Y'}",
@@ -1244,10 +1250,7 @@ def _sync_peer_flag_lines(peer):
             f"Out: bulletins {sync_bulletins or 'Y'}",
             f"channels {sync_channels or 'Y'}",
         ),
-        "  " + join_display_fields(
-            f"Mail: {sync_mail or 'Y'}",
-            f"Mesh nodes: {sync_mesh_nodes or 'N'}",
-        ),
+        "  " + join_display_fields(*mail_line_fields),
     ]
 
 
@@ -1268,13 +1271,12 @@ def _sync_peer_lines(rows):
         fields.extend([
             f"Protocol: {sync_protocol}",
             f"Enabled: {enabled or 'Y'}",
-            f"Last heard: {heard}",
         ])
         alert = _sync_peer_alert_field(peer)
         if alert:
             fields.append(alert)
         lines.append(join_display_fields(*fields))
-        lines.extend(_sync_peer_flag_lines(peer))
+        lines.extend(_sync_peer_flag_lines(peer, heard))
     return lines
 
 def list_sync_peers():

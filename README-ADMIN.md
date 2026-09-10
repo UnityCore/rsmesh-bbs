@@ -214,11 +214,11 @@ Configure remote BBS nodes for bulletin, mail, channel, and mesh-node synchroniz
 
 #### List Sync Peers — fields per peer
 
-**Line 1:** ID, Node, Name (if set), Protocol, Enabled (Y/N), Last heard (relative time), optional `Alert: received RS v{version}`
+**Line 1:** ID, Node, Name (if set), Protocol, Enabled (Y/N), optional `Alert: received RS v{version}`
 
 **Line 2:** `In: bulletins {Y/N}  channels {Y/N}  Out: bulletins {Y/N}  channels {Y/N}`
 
-**Line 3:** `Mail: {Y/N}  Mesh nodes: {Y/N}`
+**Line 3:** `Mail: {Y/N}  Mesh nodes: {Y/N}  Last heard: {relative time}`
 
 RS version alerts appear when a peer sends a sync wire version that does not match the configured protocol.
 
