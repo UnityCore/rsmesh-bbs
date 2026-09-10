@@ -235,6 +235,14 @@ def _create_rsmesh_support_tables(c):
                PRIMARY KEY (record_type, record_key)
            )"""
     )
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS pending_urgent_alerts (
+               unique_id TEXT NOT NULL PRIMARY KEY,
+               sender_short_name TEXT NOT NULL,
+               subject TEXT NOT NULL,
+               created TEXT NOT NULL
+           )"""
+    )
 
 
 def _mail_recipient_is_nullable(c):

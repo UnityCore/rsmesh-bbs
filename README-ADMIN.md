@@ -315,6 +315,8 @@ Success message reports file count, SQL dump count, and config count.
 
 List view groups bulletins by board in order: Urgent, General, News, Info (other board names appended alphabetically).
 
+**Urgent alerts:** When `bbs.send_urgent_alert_local` is `yes`, **Add Bulletin** to the Urgent board queues a mesh broadcast for the running server (not sent from the admin tool directly). **Edit Bulletin** never queues or sends an Urgent alert, including when the board is changed to Urgent. See README “Urgent board alerts” for `send_urgent_alert_local` and `send_urgent_alert_from_sync`.
+
 ### List Bulletins — per entry (2 lines)
 
 - `ID, Poster, Subject, Date`
@@ -330,6 +332,8 @@ List view groups bulletins by board in order: Urgent, General, News, Info (other
 | `Poster short name:` | Yes | |
 | `Subject:` | Yes | |
 | Multiline content | No | END-terminated |
+
+When the board is **Urgent** and `bbs.send_urgent_alert_local` is `yes`, the server queues a mesh broadcast alert (delivered by the running BBS process, not from the admin tool).
 
 ### Edit Bulletin
 

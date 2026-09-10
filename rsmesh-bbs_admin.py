@@ -484,6 +484,11 @@ def add_bulletin_entry():
         return
     content = _read_multiline_content()
     unique_id = add_bulletin(board, sender_short_name, subject, content, None, None)
+    if board == "Urgent":
+        from rsmesh_bbs.urgent_alerts import enqueue_pending_urgent_alert, urgent_alert_local_enabled
+
+        if urgent_alert_local_enabled():
+            enqueue_pending_urgent_alert(unique_id, sender_short_name, subject)
     _finish_action_message(f"Bulletin added (unique ID: {unique_id}).", "Add Bulletin")
 
 def edit_bulletin_entry():

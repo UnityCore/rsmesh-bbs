@@ -6,7 +6,6 @@ import time
 import uuid
 from datetime import datetime, timedelta
 
-from meshtastic import BROADCAST_NUM
 
 from .version import BBS_DB_FILE
 from .config_init import DEFAULT_CONFIG_FILE, export_sys_config_to_yaml, flatten_yaml_config, load_config
@@ -583,6 +582,12 @@ def initialize_database(quiet=False):
                     record_key TEXT NOT NULL,
                     created TEXT NOT NULL,
                     PRIMARY KEY (record_type, record_key)
+                )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS pending_urgent_alerts (
+                    unique_id TEXT NOT NULL PRIMARY KEY,
+                    sender_short_name TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    created TEXT NOT NULL
                 )''')
     migrate_tc2_database(c)
     _ensure_default_modules(c)
@@ -2431,12 +2436,9 @@ def add_bulletin(board, sender_short_name, subject, content, bbs_nodes, interfac
         _mark_inbound_sync_complete('bulletins', unique_id)
         return unique_id
 
-    if board.lower() == "urgent" and interface:
-        notification_message = (
-            f"= NEW URGENT BULLETIN =\nFrom: {sender_short_name}\n"
-            f"Title: {subject}\nType HELP and select Bulletins to view."
-        )
-        send_message(notification_message, BROADCAST_NUM, interface)
+    from .urgent_alerts import maybe_send_urgent_alert_local
+
+    maybe_send_urgent_alert_local(board, sender_short_name, subject, interface)
 
     if not defer_sync:
         sync_bulletin_record(unique_id, bbs_nodes, interface)
@@ -2648,10 +2650,20 @@ def confirm_reconcile_bulletin_delete(bulletin_id):
     conn = get_db_connection()
     c = conn.cursor()
     c.execute(
+        "SELECT unique_id FROM bulletins WHERE id = ? AND delete_reconcile = 'Y'",
+        (bulletin_id,),
+    )
+    row = c.fetchone()
+    unique_id = row[0] if row else None
+    c.execute(
         "DELETE FROM bulletins WHERE id = ? AND delete_reconcile = 'Y'",
-        (bulletin_id,)
+        (bulletin_id,),
     )
     conn.commit()
+    if c.rowcount > 0 and unique_id:
+        from .urgent_alerts import clear_pending_urgent_alert
+
+        clear_pending_urgent_alert(unique_id)
     return c.rowcount > 0
 
 
@@ -2670,6 +2682,9 @@ def mark_bulletin_deleted(bulletin_id):
     conn.commit()
     if c.rowcount > 0:
         _reset_record_peer_sync('bulletins', unique_id)
+        from .urgent_alerts import clear_pending_urgent_alert
+
+        clear_pending_urgent_alert(unique_id)
     return c.rowcount > 0
 
 
@@ -2683,6 +2698,9 @@ def delete_bulletin(bulletin_id, bbs_nodes, interface):
     unique_id = row[0]
     c.execute("DELETE FROM bulletins WHERE id = ?", (bulletin_id,))
     conn.commit()
+    from .urgent_alerts import clear_pending_urgent_alert
+
+    clear_pending_urgent_alert(unique_id)
     sync_peers = get_sync_peers_from_interface(interface, bbs_nodes)
     bulletin_peers = filter_peers_for_record_type(sync_peers, 'bulletins')
     if bulletin_peers and interface:

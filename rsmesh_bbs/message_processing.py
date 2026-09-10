@@ -1,7 +1,5 @@
 import logging
 
-from meshtastic import BROADCAST_NUM
-
 from .command_handlers import (
     handle_read_mail_command, handle_send_mail_command, handle_bulletin_command, handle_help_command,
     handle_modules_command, handle_modules_steps,
@@ -130,12 +128,9 @@ def _sync_ingest_bulletin(board, sender_short_name, subject, content, unique_id,
         board, sender_short_name, subject, content, [], interface,
         unique_id=unique_id, from_sync=True,
     )
-    if board.lower() == "urgent":
-        notification_message = (
-            f"= NEW URGENT BULLETIN =\nFrom: {sender_short_name}\n"
-            f"Title: {subject}\nType HELP and select Bulletins to view."
-        )
-        send_message(notification_message, BROADCAST_NUM, interface)
+    from .urgent_alerts import maybe_send_urgent_alert_from_sync
+
+    maybe_send_urgent_alert_from_sync(board, sender_short_name, subject, interface)
 
 
 def _sync_ingest_mail(
