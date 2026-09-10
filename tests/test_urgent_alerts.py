@@ -1,13 +1,13 @@
 import pytest
 
 from rsmesh_bbs import db_operations
+from rsmesh_bbs.config_init import parse_config_value
 from rsmesh_bbs.message_processing import _sync_ingest_bulletin
 from rsmesh_bbs.mock_interface import MockMeshInterface
 from rsmesh_bbs.urgent_alerts import (
     drain_pending_urgent_alerts,
     enqueue_pending_urgent_alert,
     maybe_send_urgent_alert_local,
-    normalize_yes_no,
     urgent_alert_from_sync_enabled,
     urgent_alert_local_enabled,
 )
@@ -24,20 +24,10 @@ def _set_bbs_config(key, value):
     conn.commit()
 
 
-@pytest.mark.parametrize(
-    ("raw", "expected"),
-    [
-        ("yes", "yes"),
-        ("Y", "yes"),
-        ("no", "no"),
-        ("N", "no"),
-        ("", "no"),
-        (None, "no"),
-        ("maybe", "no"),
-    ],
-)
-def test_normalize_yes_no(raw, expected):
-    assert normalize_yes_no(raw) == expected
+def test_parse_config_value_booleans():
+    assert parse_config_value("true") is True
+    assert parse_config_value("false") is False
+    assert parse_config_value(None) is None
 
 
 class TestUrgentAlertConfig:
@@ -46,8 +36,8 @@ class TestUrgentAlertConfig:
         assert urgent_alert_from_sync_enabled() is False
 
     def test_config_enables_flags(self, temp_db):
-        _set_bbs_config("send_urgent_alert_local", "yes")
-        _set_bbs_config("send_urgent_alert_from_sync", "yes")
+        _set_bbs_config("send_urgent_alert_local", "true")
+        _set_bbs_config("send_urgent_alert_from_sync", "true")
         assert urgent_alert_local_enabled() is True
         assert urgent_alert_from_sync_enabled() is True
 
@@ -68,7 +58,7 @@ class TestUrgentAlertSending:
         maybe_send_urgent_alert_local("Urgent", "OPS", "Test", interface)
         assert sent == []
 
-        _set_bbs_config("send_urgent_alert_local", "yes")
+        _set_bbs_config("send_urgent_alert_local", "true")
         maybe_send_urgent_alert_local("Urgent", "OPS", "Evacuate", interface)
         assert sent == [("OPS", "Evacuate", interface)]
 
@@ -80,7 +70,7 @@ class TestUrgentAlertSending:
             "rsmesh_bbs.urgent_alerts.send_urgent_mesh_alert",
             lambda sender, subject, iface: sent.append((sender, subject)) or True,
         )
-        _set_bbs_config("send_urgent_alert_local", "yes")
+        _set_bbs_config("send_urgent_alert_local", "true")
 
         db_operations.add_bulletin(
             "Urgent", "OPS", "Storm", "Details", [], interface,
@@ -95,8 +85,8 @@ class TestUrgentAlertSending:
             "rsmesh_bbs.urgent_alerts.send_urgent_mesh_alert",
             lambda sender, subject, iface: sent.append((sender, subject)) or True,
         )
-        _set_bbs_config("send_urgent_alert_local", "yes")
-        _set_bbs_config("send_urgent_alert_from_sync", "yes")
+        _set_bbs_config("send_urgent_alert_local", "true")
+        _set_bbs_config("send_urgent_alert_from_sync", "true")
 
         db_operations.add_bulletin(
             "Urgent", "OPS", "Storm", "Details", [], interface,
@@ -112,7 +102,7 @@ class TestUrgentAlertSending:
             "rsmesh_bbs.urgent_alerts.send_urgent_mesh_alert",
             lambda sender, subject, iface: sent.append((sender, subject)) or True,
         )
-        _set_bbs_config("send_urgent_alert_from_sync", "yes")
+        _set_bbs_config("send_urgent_alert_from_sync", "true")
 
         _sync_ingest_bulletin(
             "Urgent", "PEER", "Incoming", "Body", "sync-uid-2", interface,
@@ -121,7 +111,7 @@ class TestUrgentAlertSending:
 
 
 class TestPendingUrgentAlerts:
-    def test_enqueue_only_when_config_yes_at_add_time(self, temp_db):
+    def test_enqueue_only_when_config_true_at_add_time(self, temp_db):
         unique_id = db_operations.add_bulletin(
             "Urgent", "OPS", "Queued", "Body", None, None,
         )
@@ -130,7 +120,7 @@ class TestPendingUrgentAlerts:
         c.execute("SELECT COUNT(*) FROM pending_urgent_alerts WHERE unique_id = ?", (unique_id,))
         assert c.fetchone()[0] == 0
 
-        _set_bbs_config("send_urgent_alert_local", "yes")
+        _set_bbs_config("send_urgent_alert_local", "true")
         assert enqueue_pending_urgent_alert(unique_id, "OPS", "Queued") is True
         c.execute("SELECT COUNT(*) FROM pending_urgent_alerts WHERE unique_id = ?", (unique_id,))
         assert c.fetchone()[0] == 1
@@ -147,7 +137,7 @@ class TestPendingUrgentAlerts:
         unique_id = db_operations.add_bulletin(
             "Urgent", "OPS", "Queued", "Body", None, None,
         )
-        _set_bbs_config("send_urgent_alert_local", "yes")
+        _set_bbs_config("send_urgent_alert_local", "true")
         enqueue_pending_urgent_alert(unique_id, "OPS", "Queued")
 
         drain_pending_urgent_alerts(interface)
@@ -178,7 +168,7 @@ class TestPendingUrgentAlerts:
             "rsmesh_bbs.urgent_alerts.send_urgent_mesh_alert",
             lambda *_args, **_kwargs: True,
         )
-        _set_bbs_config("send_urgent_alert_local", "yes")
+        _set_bbs_config("send_urgent_alert_local", "true")
         unique_id = db_operations.add_bulletin(
             "Urgent", "OPS", "Queued", "Body", None, None,
         )
