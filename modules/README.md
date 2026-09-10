@@ -1,6 +1,6 @@
 # RSMesh BBS Modules
 
-Release 1.0
+Release 1.1
 
 Modules extend the mesh BBS with optional menus, scheduled tasks, and shared services. Each module lives in its own subdirectory under `modules/`.
 
