@@ -324,6 +324,17 @@ If `send_urgent_alert_local` is turned off while alerts are queued, the server d
 
 Before sending a queued alert, the server verifies the bulletin still exists and is still on the Urgent board.
 
+### Pinned bulletins
+
+Operators can pin important bulletins so they stay visible on mesh boards longer than normal posts. Pinning is set in the admin tool (**Bulletins → Edit Bulletin → Pinned Y/N**). Mesh users cannot pin or unpin from the handset.
+
+| Audience | What they see |
+|----------|----------------|
+| **Mesh users** | Pinned bulletins (`pinned = Y`) always appear in board lists and can be read, regardless of age. Non-pinned bulletins drop off after `schedule.bulletin_display_age_days` (default 30 days). Pinned entries are listed first on each board. |
+| **Admin tool** | All non-deleted bulletins, including older unpinned posts, for full management. |
+
+New bulletins are unpinned by default. Changing the pinned flag (or other bulletin fields) in **Edit Bulletin** marks the record unsynced so the update can sync to peers.
+
 ## Channel directory
 
 The BBS maintains a **channel directory**: a list of Meshtastic channel names and PSKs so mesh users can find and join shared channels.

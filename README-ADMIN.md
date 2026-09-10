@@ -335,11 +335,15 @@ List view groups bulletins by board in order: Urgent, General, News, Info (other
 
 When the board is **Urgent** and `bbs.send_urgent_alert_local` is `true`, the server queues a mesh broadcast alert (delivered by the running BBS process, not from the admin tool).
 
+New bulletins are **not** pinned (`Pinned: N`). Use **Edit Bulletin** to pin or unpin.
+
 ### Edit Bulletin
 
 Select: `Enter ID or X=cancel:`
 
 Editable: Board, Poster short name, Subject, Pinned (Y/N). Optional content re-entry when `Edit content? (Y/N) [N]:` is **`Y`**. Saving resets sync status.
+
+**Pinned (Y/N):** When `Y`, the bulletin stays on mesh board menus and read lists regardless of `schedule.bulletin_display_age_days`. Pinned posts are listed before unpinned posts on the mesh. When `N`, the bulletin is subject to the display-age limit like any normal post. Mesh users cannot change this flag; only the admin tool can. See README “Pinned bulletins”.
 
 ### Delete Bulletins
 
