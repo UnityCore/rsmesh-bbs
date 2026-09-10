@@ -330,14 +330,21 @@ def sync_pending_records(sync_peers, interface):
     bulletin_clause = _record_needs_peer_sync_clause('bulletins', 'b', 'unique_id')
 
     c.execute(
-        f"SELECT board, sender_short_name, subject, content, unique_id FROM bulletins b "
+        f"SELECT board, sender_short_name, subject, content, unique_id, pinned FROM bulletins b "
         f"WHERE deleted = 'N' AND {bulletin_clause} ORDER BY b.id",
         ('bulletins',),
     )
-    for board, sender_short_name, subject, content, unique_id in c.fetchall():
+    for board, sender_short_name, subject, content, unique_id, pinned in c.fetchall():
         def _send_bulletin(pending_peers):
             return send_bulletin_to_sync_peers(
-                board, sender_short_name, subject, content, unique_id, pending_peers, interface
+                board,
+                sender_short_name,
+                subject,
+                content,
+                unique_id,
+                pending_peers,
+                interface,
+                pinned=pinned or "N",
             )
 
         if _sync_record_to_peers('bulletins', unique_id, 'unique_id', unique_id, peers, _send_bulletin):
@@ -524,7 +531,7 @@ def initialize_database(quiet=False):
                     bbs_admin TEXT NOT NULL DEFAULT 'N',
                     bbs_mail_forward_to TEXT,
                     has_gps TEXT NOT NULL DEFAULT 'N',
-                    public_key TEXT NOT NULL,
+                    public_key TEXT,
                     private_key TEXT,
                     ble_pin TEXT NOT NULL DEFAULT '123456',
                     hardware TEXT,
@@ -1703,12 +1710,11 @@ NODE_CATALOG_REQUIRED_CSV_FIELDS = (
     'long_name',
     'short_name',
     'node_hex_username',
-    'public_key',
 )
 
 
 def _normalize_node_catalog_csv_value(field, value):
-    if field in ('bbs_mail_forward_to', 'private_key', 'hardware', 'comment'):
+    if field in ('bbs_mail_forward_to', 'private_key', 'public_key', 'hardware', 'comment'):
         if value is None:
             return None
         text = str(value).strip()
@@ -2413,6 +2419,64 @@ def apply_mail_forwarding(recipient_id, content, interface=None):
 
 
 
+def _normalize_pinned_flag(value):
+    return "Y" if (value or "N").strip().upper() == "Y" else "N"
+
+
+def ingest_bulletin_from_rsv1_sync(
+    board,
+    sender_short_name,
+    subject,
+    content,
+    unique_id,
+    pinned="N",
+    interface=None,
+):
+    """Insert or update a bulletin ingested from an rsv1 sync peer."""
+    unique_id = (unique_id or "").strip()
+    if not unique_id:
+        return None
+
+    pinned = _normalize_pinned_flag(pinned)
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT id, deleted FROM bulletins WHERE unique_id = ?", (unique_id,))
+    row = c.fetchone()
+    if row is None:
+        date = datetime.now().strftime("%Y-%m-%d %H:%M")
+        c.execute(
+            "INSERT INTO bulletins "
+            "(board, sender_short_name, date, subject, content, unique_id, synced, pinned) "
+            "VALUES (?, ?, ?, ?, ?, ?, 'Y', ?)",
+            (board, sender_short_name, date, subject, content, unique_id, pinned),
+        )
+        conn.commit()
+        _mark_inbound_sync_complete("bulletins", unique_id)
+        from .urgent_alerts import maybe_send_urgent_alert_from_sync
+
+        maybe_send_urgent_alert_from_sync(board, sender_short_name, subject, interface)
+        return unique_id
+
+    bulletin_id, deleted = row
+    if (deleted or "N").upper() == "Y":
+        logging.info(
+            "Bulletin %s is deleted locally; skipping RS sync update for bulletin %s.",
+            unique_id,
+            bulletin_id,
+        )
+        _mark_inbound_sync_complete("bulletins", unique_id)
+        return unique_id
+
+    c.execute(
+        "UPDATE bulletins SET board = ?, sender_short_name = ?, subject = ?, content = ?, pinned = ? "
+        "WHERE unique_id = ?",
+        (board, sender_short_name, subject, content, pinned, unique_id),
+    )
+    conn.commit()
+    _mark_inbound_sync_complete("bulletins", unique_id)
+    return unique_id
+
+
 def add_bulletin(board, sender_short_name, subject, content, bbs_nodes, interface, unique_id=None, from_sync=False, defer_sync=False):
     conn = get_db_connection()
     c = conn.cursor()
@@ -2453,18 +2517,25 @@ def sync_bulletin_record(unique_id, bbs_nodes, interface):
     conn = get_db_connection()
     c = conn.cursor()
     c.execute(
-        "SELECT board, sender_short_name, subject, content FROM bulletins WHERE unique_id = ?",
+        "SELECT board, sender_short_name, subject, content, pinned FROM bulletins WHERE unique_id = ?",
         (unique_id,),
     )
     row = c.fetchone()
     if row is None:
         return
 
-    board, sender_short_name, subject, content = row
+    board, sender_short_name, subject, content, pinned = row
 
     def _send(pending_peers):
         return send_bulletin_to_sync_peers(
-            board, sender_short_name, subject, content, unique_id, pending_peers, interface
+            board,
+            sender_short_name,
+            subject,
+            content,
+            unique_id,
+            pending_peers,
+            interface,
+            pinned=pinned or "N",
         )
 
     _complete_local_sync('bulletins', 'unique_id', unique_id, unique_id, bbs_nodes, interface, _send)

@@ -1,5 +1,7 @@
 # RSMesh BBS Admin Tool
 
+Release 1.0
+
 Interactive terminal admin for managing the BBS database, sync peers, modules, and related configuration. The admin tool does not require a radio connection.
 
 ## Requirements
@@ -238,8 +240,8 @@ RS version alerts appear when a peer sends a sync wire version that does not mat
 | `Enabled (Y/N) [Y]:` | Y | Master on/off for this peer; **`N`** skips all outbound and inbound sync |
 
 **Protocol behavior:**
-- **`tc2`** — TC²-compatible pipe-delimited sync (`BULLETIN|`, `MAIL|`, etc.). Mesh node sync is forced to **`N`**.
-- **`rsv1`** — RS wire format (`RS|1|TYPE|{json}`). Supports mesh node sync and RS version negotiation.
+- **`tc2`** — TC²-compatible pipe-delimited sync (`BULLETIN|`, `MAIL|`, etc.). Maintains TC²-BBS-mesh conventions: bulletin sync is **create-only** (duplicate `unique_id` ingests are skipped; pin/edit updates are **not** sent). Mesh node sync is forced to **`N`**. Messages must fit in one 200-byte packet.
+- **`rsv1`** — RS wire format (`RS|1|TYPE|{json}`). Supports bulletin **upsert** by `unique_id` (edits and **Pinned** changes propagate), chunked oversized payloads, mesh node sync, and RS version negotiation. See README [Sync wire formats](README.md#sync-wire-formats).
 
 Duplicate `bbs_node` values are rejected on add.
 
@@ -315,7 +317,7 @@ Success message reports file count, SQL dump count, and config count.
 
 List view groups bulletins by board in order: Urgent, General, News, Info (other board names appended alphabetically).
 
-**Urgent alerts:** When `bbs.send_urgent_alert_local` is `yes`, **Add Bulletin** to the Urgent board queues a mesh broadcast for the running server (not sent from the admin tool directly). **Edit Bulletin** never queues or sends an Urgent alert, including when the board is changed to Urgent. See README “Urgent board alerts” for `send_urgent_alert_local` and `send_urgent_alert_from_sync`.
+**Urgent alerts:** When `bbs.send_urgent_alert_local` is `true`, **Add Bulletin** to the Urgent board queues a mesh broadcast for the running server (not sent from the admin tool directly). **Edit Bulletin** never queues or sends an Urgent alert, including when the board is changed to Urgent. See README “Urgent board alerts” for `send_urgent_alert_local` and `send_urgent_alert_from_sync`.
 
 ### List Bulletins — per entry (2 lines)
 
@@ -333,13 +335,17 @@ List view groups bulletins by board in order: Urgent, General, News, Info (other
 | `Subject:` | Yes | |
 | Multiline content | No | END-terminated |
 
-When the board is **Urgent** and `bbs.send_urgent_alert_local` is `yes`, the server queues a mesh broadcast alert (delivered by the running BBS process, not from the admin tool).
+When the board is **Urgent** and `bbs.send_urgent_alert_local` is `true`, the server queues a mesh broadcast alert (delivered by the running BBS process, not from the admin tool).
+
+New bulletins are **not** pinned (`Pinned: N`). Use **Edit Bulletin** to pin or unpin.
 
 ### Edit Bulletin
 
 Select: `Enter ID or X=cancel:`
 
-Editable: Board, Poster short name, Subject, Pinned (Y/N). Optional content re-entry when `Edit content? (Y/N) [N]:` is **`Y`**. Saving resets sync status.
+Editable: Board, Poster short name, Subject, Pinned (Y/N). Optional content re-entry when `Edit content? (Y/N) [N]:` is **`Y`**. Saving resets sync status so **rsv1** peers receive the update. **tc2** peers keep the original bulletin only.
+
+**Pinned (Y/N):** When `Y`, the bulletin stays on mesh board menus and read lists regardless of `schedule.bulletin_display_age_days`. Pinned posts are listed before unpinned posts on the mesh. When `N`, the bulletin is subject to the display-age limit like any normal post. Mesh users cannot change this flag; only the admin tool can. Pin changes sync to **rsv1** peers only. See README “Pinned bulletins”.
 
 ### Delete Bulletins
 
@@ -476,7 +482,13 @@ Select: `Enter ID(s) or X=cancel:` — comma-separated IDs allowed.
 
 ## Node Catalog
 
-Operator directory of known nodes with keys and admin flags. Distinct from **Mesh Nodes**, which tracks nodes observed on the mesh.
+Optional **operator convenience** — a notebook of nodes you want on file. Distinct from **Mesh Nodes** (nodes observed on the air) and from the **Node Info** module database.
+
+The BBS server uses catalog rows only for **short-name/hex ID lookup**, **mail inbox matching**, **BBS Mail Forward To**, and **BBS Admin** (sync to `sysadmin_nodes`). Fields such as `public_key`, `private_key`, `ble_pin`, `has_gps`, `hardware`, and `comment` are optional operator notes and are never read by server logic.
+
+**Mesh admin (Y/N)** is an operator reference flag only — it does not change BBS or mesh behavior. Set **`Y`** when **this catalog entry is the administrator node** that will send remote config changes to other radios (not when this node is the one being administered). On each **target** radio, add **this node's public key** under **Radio Config → Security → Admin Settings** (Primary, Secondary, or Tertiary Admin Key). Configured targets will accept changes from the Mesh Admin node per Meshtastic specs; unconfigured nodes will not. The flag only documents that you have made (or intend to make) those radio-side settings. Use the catalog **Public key** field optionally to record the administrator node's key for your own fleet documentation.
+
+See [README — Node catalog (operator reference)](README.md#node-catalog-operator-reference) for the full runtime field matrix.
 
 | Option | Action |
 |--------|--------|
@@ -492,7 +504,7 @@ Operator directory of known nodes with keys and admin flags. Distinct from **Mes
 
 `ID, Short, Long, Node: {hex}, Admin: {Y/N}`
 
-Admin is **`Y`** when `mesh_admin=Y` or `bbs_admin=Y`.
+List **Admin: Y** when `mesh_admin=Y` or `bbs_admin=Y` (visual hint only for `mesh_admin`; only `bbs_admin` affects BBS permissions).
 
 **Detail view fields:** ID, Short Name, Long Name, Node Hex Username, Mesh Admin, BBS Admin, BBS Mail Forward To, Has GPS, Public Key, Private Key, BLE PIN, Hardware, Comment, Created, Updated
 
@@ -503,17 +515,19 @@ Admin is **`Y`** when `mesh_admin=Y` or `bbs_admin=Y`.
 | `Long name:` | — | Yes |
 | `Short name:` | — | Yes |
 | `Node hex username (e.g. !9e9d8704):` | — | Yes |
-| `Mesh admin (Y/N) [N]:` | N | Y/N |
-| `BBS admin (Y/N) [N]:` | N | Y/N |
+| `Mesh admin (Y/N) [N]:` | N | Y/N — operator reference: this node is the remote **administrator** (its public key goes on other radios' Admin Settings) |
+| `BBS admin (Y/N) [N]:` | N | Y/N — syncs `sysadmin_nodes` when `Y` |
 | `BBS mail forward to (optional):` | — | No |
 | `Has GPS (Y/N) [N]:` | N | Y/N |
-| `Public key:` | — | Yes |
+| `Public key (optional):` | — | No |
 | `Private key (optional):` | — | No |
 | `BLE PIN [123456]:` | 123456 | No |
 | `Hardware (optional):` | — | No |
 | `Comment (optional):` | — | No |
 
 Adding or changing `bbs_admin` syncs the `sysadmin_nodes` table.
+
+**BBS mail forward to** — optional hex node ID or short name. When mail is addressed to this catalog entry, it is stored for the forward target instead, with a `Sent to {short name}` footer. See [README — Mail forwarding](README.md#mail-forwarding).
 
 ### Edit / Delete Node Catalog Entry
 
@@ -525,7 +539,7 @@ Default filename: `node_catalog.csv`
 
 **CSV columns:** `long_name`, `short_name`, `node_hex_username`, `mesh_admin`, `bbs_admin`, `bbs_mail_forward_to`, `has_gps`, `public_key`, `private_key`, `ble_pin`, `hardware`, `comment`, `created`, `updated`
 
-**Required on import:** `long_name`, `short_name`, `node_hex_username`, `public_key`
+**Required on import:** `long_name`, `short_name`, `node_hex_username`
 
 **Y/N columns:** `mesh_admin`, `bbs_admin`, `has_gps` (invalid values default to `N`)
 
@@ -535,7 +549,9 @@ Import mode: Replace (`R`) or Append (`A`, default).
 
 ## Mesh Nodes
 
-Tracks nodes seen on the mesh (for sync and resolution). Populated by the BBS from live traffic and RS sync; can also be managed manually here.
+Core **minimal node directory** in the main database (`mesh_nodes`): hex node ID, short name, long name, and last heard. The server populates it automatically from live mesh traffic and from **rsv1** peer sync when **Sync mesh nodes** is enabled. This store supports mail recipient lookup, short-name resolution, and mesh-node sync **without** requiring the optional **Node Info** module.
+
+Operators can also add, edit, import, export, or purge rows here. See README [Mesh nodes vs Node Info](README.md#mesh-nodes-vs-node-info).
 
 | Option | Action |
 |--------|--------|
@@ -595,12 +611,14 @@ Reached from **Administration → Modules** when the module is enabled and provi
 
 **Title:** Node Info
 
+Optional module (disable under **Modules** if you do not want enhanced telemetry). Unlike **Mesh Nodes**, which holds minimal IDs/names for core server operation, Node Info maintains a separate database of richer overheard-packet telemetry (signal, GPS, hops, etc.) for operator reference and mesh user statistics.
+
 | Option | Action |
 |--------|--------|
 | `1` | List Node Info |
 | `0` | Back to Modules |
 
-Data comes from `modules/node_info/node_info.db` (not the main BBS database).
+Data comes from `modules/node_info/node_info.db` (not the main BBS database). See README [Mesh nodes vs Node Info](README.md#mesh-nodes-vs-node-info).
 
 **Per node (3 lines):**
 - `{short} - {long} [{node_id}]  Seen: {relative}`
@@ -639,10 +657,12 @@ Shown on bulletin, mail, and channel list/detail views:
 
 ### Sync protocols
 
-| Protocol | Wire format | Mesh node sync |
-|----------|-------------|----------------|
-| `tc2` | Pipe-delimited (`BULLETIN|`, `MAIL|`, …) | Not supported |
-| `rsv1` | `RS\|1\|TYPE\|{json}` | Supported when enabled per peer |
+| Protocol | Wire format | Bulletin updates | Pinned on wire | Mesh node sync |
+|----------|-------------|------------------|----------------|----------------|
+| `tc2` | Pipe-delimited (`BULLETIN|`, `MAIL|`, …) | Create-only (TC² standard) | No | Not supported |
+| `rsv1` | `RS\|1\|TYPE\|{json}` | Upsert by `unique_id` | Yes (`pin`) | Supported when enabled per peer |
+
+See README [Sync wire formats](README.md#sync-wire-formats) for the full comparison.
 
 ### Node ID format
 

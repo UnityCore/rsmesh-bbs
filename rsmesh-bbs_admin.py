@@ -827,15 +827,15 @@ def add_node_catalog_entry():
     bbs_admin = _normalize_yn(input_bold("BBS admin (Y/N) [N]: "))
     bbs_mail_forward_to = input_bold("BBS mail forward to (optional): ").strip() or None
     has_gps = _normalize_yn(input_bold("Has GPS (Y/N) [N]: "))
-    public_key = input_bold("Public key: ").strip()
+    public_key = input_bold("Public key (optional): ").strip() or None
     private_key = input_bold("Private key (optional): ").strip() or None
     ble_pin = input_bold("BLE PIN [123456]: ").strip() or '123456'
     hardware = input_bold("Hardware (optional): ").strip() or None
     comment = input_bold("Comment (optional): ").strip() or None
 
-    if not long_name or not short_name or not node_hex_username or not public_key:
+    if not long_name or not short_name or not node_hex_username:
         _finish_action_message(
-            "Long name, short name, node hex username, and public key are required.",
+            "Long name, short name, and node hex username are required.",
             "Add Node Catalog Entry",
         )
         return
@@ -895,7 +895,9 @@ def edit_node_catalog_entry():
     if fwd:
         bbs_mail_forward_to = fwd
     has_gps = _normalize_yn(input_bold(f"Has GPS (Y/N) [{has_gps}]: "), has_gps)
-    public_key = input_bold(f"Public key [{public_key}]: ").strip() or public_key
+    pk = input_bold(f"Public key [{public_key or ''}]: ").strip()
+    if pk:
+        public_key = pk
     pk = input_bold(f"Private key [{private_key or ''}]: ").strip()
     if pk:
         private_key = pk

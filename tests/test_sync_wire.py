@@ -68,7 +68,16 @@ class TestRsEncodeDecodeRoundTrips:
             "subject": "Hello",
             "content": "Body text",
             "unique_id": BULLETIN_UID,
+            "pinned": "N",
         }
+
+    def test_bulletin_round_trip_with_pinned(self):
+        message = encode_bulletin_sync_message(
+            "rsv1", "general", "ALICE", "Hello", "Body text", BULLETIN_UID, pinned="Y"
+        )
+        msg_type, fields = _decode_rs_message(message)[1:]
+        assert msg_type == "BULLETIN"
+        assert fields["pinned"] == "Y"
 
     def test_mail_round_trip(self):
         message = encode_mail_sync_message(

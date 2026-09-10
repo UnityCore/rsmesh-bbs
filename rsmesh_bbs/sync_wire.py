@@ -75,12 +75,14 @@ def _opt_field(data, key, default=""):
 def _decode_rs_v1(msg_type, data):
     msg_type = msg_type.upper()
     if msg_type == "BULLETIN":
+        pinned = _opt_field(data, "pin", "N").strip().upper()
         return msg_type, {
             "board": _req_field(data, "b", "board"),
             "sender_short_name": _req_field(data, "sn", "sender short name"),
             "subject": _opt_field(data, "sub"),
             "content": _opt_field(data, "body"),
             "unique_id": _req_field(data, "uid", "unique id"),
+            "pinned": "Y" if pinned == "Y" else "N",
         }
     if msg_type == "MAIL":
         return msg_type, {
@@ -155,8 +157,17 @@ def decode_rs_sync_message(message, sender_node_id=None):
     raise last_error or ValueError(f"Unsupported RS sync message: v{wire_version} {msg_type}")
 
 
-def encode_bulletin_sync_message(sync_protocol, board, sender_short_name, subject, content, unique_id):
+def encode_bulletin_sync_message(
+    sync_protocol,
+    board,
+    sender_short_name,
+    subject,
+    content,
+    unique_id,
+    pinned="N",
+):
     if rs_wire_version_for_protocol(sync_protocol) == 1:
+        pin = "Y" if (pinned or "N").strip().upper() == "Y" else "N"
         return build_rs_message(
             1,
             "BULLETIN",
@@ -166,6 +177,7 @@ def encode_bulletin_sync_message(sync_protocol, board, sender_short_name, subjec
                 "sub": subject,
                 "body": content,
                 "uid": unique_id,
+                "pin": pin,
             },
         )
     return f"BULLETIN|{board}|{sender_short_name}|{subject}|{content}|{unique_id}"

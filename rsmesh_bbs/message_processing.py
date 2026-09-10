@@ -123,7 +123,7 @@ def _inbound_sync_allowed(sender_node_id, interface, record_type):
     return True
 
 
-def _sync_ingest_bulletin(board, sender_short_name, subject, content, unique_id, interface):
+def _sync_ingest_bulletin_tc2(board, sender_short_name, subject, content, unique_id, interface):
     add_bulletin(
         board, sender_short_name, subject, content, [], interface,
         unique_id=unique_id, from_sync=True,
@@ -156,13 +156,16 @@ def _process_rs_sync_message(sender_id, message, interface, sender_node_id):
     if msg_type == "BULLETIN":
         if not _inbound_sync_allowed(sender_node_id, interface, 'bulletins'):
             return
-        _sync_ingest_bulletin(
+        from .db_operations import ingest_bulletin_from_rsv1_sync
+
+        ingest_bulletin_from_rsv1_sync(
             fields["board"],
             fields["sender_short_name"],
             fields["subject"],
             fields["content"],
             fields["unique_id"],
-            interface,
+            pinned=fields.get("pinned", "N"),
+            interface=interface,
         )
     elif msg_type == "MAIL":
         if not _inbound_sync_allowed(sender_node_id, interface, 'mail'):
@@ -250,7 +253,7 @@ def _process_sync_message(sender_id, message, interface, sender_node_id):
             if not _inbound_sync_allowed(sender_node_id, interface, 'bulletins'):
                 return
             board, sender_short_name, subject, content, unique_id = _parse_bulletin_sync(message)
-            _sync_ingest_bulletin(
+            _sync_ingest_bulletin_tc2(
                 board, sender_short_name, subject, content, unique_id, interface,
             )
         elif message.startswith("MAIL|"):

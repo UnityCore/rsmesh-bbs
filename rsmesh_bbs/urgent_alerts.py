@@ -5,33 +5,24 @@ from datetime import datetime
 
 from meshtastic import BROADCAST_NUM
 
+from .config_init import parse_config_value
 from .db_operations import get_db_connection, get_sys_config_value
 
-DEFAULT_NO = "no"
 BBS_URGENT_ALERT_LOCAL_KEY = "send_urgent_alert_local"
 BBS_URGENT_ALERT_FROM_SYNC_KEY = "send_urgent_alert_from_sync"
 
 
-def normalize_yes_no(value, default=DEFAULT_NO):
-    text = str(value).strip().lower() if value is not None else ""
-    if text in ("yes", "y"):
-        return "yes"
-    if text in ("no", "n"):
-        return "no"
-    default_text = str(default).strip().lower()
-    if default_text in ("yes", "y"):
-        return "yes"
-    return "no"
+def _sys_config_bool(cfg_key):
+    value = get_sys_config_value("bbs", cfg_key, "false")
+    return parse_config_value(value) is True
 
 
 def urgent_alert_local_enabled():
-    value = get_sys_config_value("bbs", BBS_URGENT_ALERT_LOCAL_KEY, DEFAULT_NO)
-    return normalize_yes_no(value) == "yes"
+    return _sys_config_bool(BBS_URGENT_ALERT_LOCAL_KEY)
 
 
 def urgent_alert_from_sync_enabled():
-    value = get_sys_config_value("bbs", BBS_URGENT_ALERT_FROM_SYNC_KEY, DEFAULT_NO)
-    return normalize_yes_no(value) == "yes"
+    return _sys_config_bool(BBS_URGENT_ALERT_FROM_SYNC_KEY)
 
 
 def build_urgent_alert_message(sender_short_name, subject):

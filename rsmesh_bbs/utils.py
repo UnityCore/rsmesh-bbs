@@ -449,7 +449,16 @@ def get_sync_peers_from_interface(interface, fallback_nodes=None):
     return []
 
 
-def send_bulletin_to_sync_peers(board, sender_short_name, subject, content, unique_id, sync_peers, interface):
+def send_bulletin_to_sync_peers(
+    board,
+    sender_short_name,
+    subject,
+    content,
+    unique_id,
+    sync_peers,
+    interface,
+    pinned="N",
+):
     synced_peers = []
     for peer in sync_peers:
         bbs_node = sync_peer_bbs_node(peer)
@@ -460,6 +469,7 @@ def send_bulletin_to_sync_peers(board, sender_short_name, subject, content, uniq
             subject,
             content,
             unique_id,
+            pinned=pinned,
         )
         if send_sync_message(
             message,
