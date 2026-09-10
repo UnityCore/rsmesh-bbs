@@ -170,6 +170,7 @@ def ensure_tc2_upgrade_schema(c):
     _upgrade_mail_schema(c)
     _upgrade_channels_schema(c)
     _upgrade_sync_peers_schema(c)
+    _upgrade_node_catalog_schema(c)
     _create_rsmesh_support_tables(c)
 
 
@@ -200,6 +201,64 @@ def _upgrade_channels_schema(c):
     _add_column_if_missing(c, "channels", "unique_id", "TEXT")
     _add_column_if_missing(c, "channels", "deleted", "TEXT NOT NULL DEFAULT 'N'")
     _add_column_if_missing(c, "channels", "delete_reconcile", "TEXT NOT NULL DEFAULT 'N'")
+
+
+def _node_catalog_public_key_is_nullable(c):
+    for _cid, name, _type, notnull, _dflt, _pk in c.execute(
+        "PRAGMA table_info(node_catalog)"
+    ).fetchall():
+        if name == "public_key":
+            return notnull == 0
+    return True
+
+
+def _upgrade_node_catalog_schema(c):
+    if not _table_exists(c, "node_catalog"):
+        return
+    if _node_catalog_public_key_is_nullable(c):
+        return
+
+    c.execute(
+        """CREATE TABLE node_catalog_rsmesh (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               long_name TEXT NOT NULL,
+               short_name TEXT NOT NULL,
+               node_hex_username TEXT NOT NULL,
+               mesh_admin TEXT NOT NULL DEFAULT 'N',
+               bbs_admin TEXT NOT NULL DEFAULT 'N',
+               bbs_mail_forward_to TEXT,
+               has_gps TEXT NOT NULL DEFAULT 'N',
+               public_key TEXT,
+               private_key TEXT,
+               ble_pin TEXT NOT NULL DEFAULT '123456',
+               hardware TEXT,
+               comment TEXT,
+               created TEXT NOT NULL,
+               updated TEXT NOT NULL
+           )"""
+    )
+    c.execute(
+        """INSERT INTO node_catalog_rsmesh (
+               id, long_name, short_name, node_hex_username, mesh_admin, bbs_admin,
+               bbs_mail_forward_to, has_gps, public_key, private_key, ble_pin,
+               hardware, comment, created, updated
+           )
+           SELECT
+               id, long_name, short_name, node_hex_username, mesh_admin, bbs_admin,
+               bbs_mail_forward_to, has_gps, public_key, private_key, ble_pin,
+               hardware, comment, created, updated
+           FROM node_catalog"""
+    )
+    c.execute("DROP TABLE node_catalog")
+    c.execute("ALTER TABLE node_catalog_rsmesh RENAME TO node_catalog")
+    c.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_node_catalog_node "
+        "ON node_catalog(node_hex_username)"
+    )
+    c.execute(
+        "CREATE INDEX IF NOT EXISTS idx_node_catalog_short_name "
+        "ON node_catalog(short_name)"
+    )
 
 
 def _upgrade_sync_peers_schema(c):
@@ -376,7 +435,7 @@ def _create_rsmesh_tables(c):
                bbs_admin TEXT NOT NULL DEFAULT 'N',
                bbs_mail_forward_to TEXT,
                has_gps TEXT NOT NULL DEFAULT 'N',
-               public_key TEXT NOT NULL,
+               public_key TEXT,
                private_key TEXT,
                ble_pin TEXT NOT NULL DEFAULT '123456',
                hardware TEXT,

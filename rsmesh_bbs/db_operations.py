@@ -524,7 +524,7 @@ def initialize_database(quiet=False):
                     bbs_admin TEXT NOT NULL DEFAULT 'N',
                     bbs_mail_forward_to TEXT,
                     has_gps TEXT NOT NULL DEFAULT 'N',
-                    public_key TEXT NOT NULL,
+                    public_key TEXT,
                     private_key TEXT,
                     ble_pin TEXT NOT NULL DEFAULT '123456',
                     hardware TEXT,
@@ -1703,12 +1703,11 @@ NODE_CATALOG_REQUIRED_CSV_FIELDS = (
     'long_name',
     'short_name',
     'node_hex_username',
-    'public_key',
 )
 
 
 def _normalize_node_catalog_csv_value(field, value):
-    if field in ('bbs_mail_forward_to', 'private_key', 'hardware', 'comment'):
+    if field in ('bbs_mail_forward_to', 'private_key', 'public_key', 'hardware', 'comment'):
         if value is None:
             return None
         text = str(value).strip()

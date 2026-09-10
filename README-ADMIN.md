@@ -480,7 +480,13 @@ Select: `Enter ID(s) or X=cancel:` — comma-separated IDs allowed.
 
 ## Node Catalog
 
-Operator directory of known nodes with keys and admin flags. Distinct from **Mesh Nodes**, which tracks nodes observed on the mesh.
+Optional **operator convenience** — a notebook of nodes you want on file. Distinct from **Mesh Nodes** (nodes observed on the air) and from the **Node Info** module database.
+
+The BBS server uses catalog rows only for **short-name/hex ID lookup**, **mail inbox matching**, **BBS Mail Forward To**, and **BBS Admin** (sync to `sysadmin_nodes`). Fields such as `public_key`, `private_key`, `ble_pin`, `has_gps`, `hardware`, and `comment` are optional operator notes and are never read by server logic.
+
+**Mesh admin (Y/N)** is an operator reference flag only — it does not change BBS or mesh behavior. To enable remote administration on a device, configure **Radio Config → Security → Admin Settings** on that radio (add the administrator public key). Use the catalog **Public key** field optionally to record the node's key for your own fleet documentation.
+
+See [README — Node catalog (operator reference)](README.md#node-catalog-operator-reference) for the full runtime field matrix.
 
 | Option | Action |
 |--------|--------|
@@ -496,7 +502,7 @@ Operator directory of known nodes with keys and admin flags. Distinct from **Mes
 
 `ID, Short, Long, Node: {hex}, Admin: {Y/N}`
 
-Admin is **`Y`** when `mesh_admin=Y` or `bbs_admin=Y`.
+List **Admin: Y** when `mesh_admin=Y` or `bbs_admin=Y` (visual hint only for `mesh_admin`; only `bbs_admin` affects BBS permissions).
 
 **Detail view fields:** ID, Short Name, Long Name, Node Hex Username, Mesh Admin, BBS Admin, BBS Mail Forward To, Has GPS, Public Key, Private Key, BLE PIN, Hardware, Comment, Created, Updated
 
@@ -507,17 +513,19 @@ Admin is **`Y`** when `mesh_admin=Y` or `bbs_admin=Y`.
 | `Long name:` | — | Yes |
 | `Short name:` | — | Yes |
 | `Node hex username (e.g. !9e9d8704):` | — | Yes |
-| `Mesh admin (Y/N) [N]:` | N | Y/N |
-| `BBS admin (Y/N) [N]:` | N | Y/N |
+| `Mesh admin (Y/N) [N]:` | N | Y/N — operator reference; configure Admin Settings on the radio separately |
+| `BBS admin (Y/N) [N]:` | N | Y/N — syncs `sysadmin_nodes` when `Y` |
 | `BBS mail forward to (optional):` | — | No |
 | `Has GPS (Y/N) [N]:` | N | Y/N |
-| `Public key:` | — | Yes |
+| `Public key (optional):` | — | No |
 | `Private key (optional):` | — | No |
 | `BLE PIN [123456]:` | 123456 | No |
 | `Hardware (optional):` | — | No |
 | `Comment (optional):` | — | No |
 
 Adding or changing `bbs_admin` syncs the `sysadmin_nodes` table.
+
+**BBS mail forward to** — optional hex node ID or short name. When mail is addressed to this catalog entry, it is stored for the forward target instead, with a `Sent to {short name}` footer. See [README — Mail forwarding](README.md#mail-forwarding).
 
 ### Edit / Delete Node Catalog Entry
 
@@ -529,7 +537,7 @@ Default filename: `node_catalog.csv`
 
 **CSV columns:** `long_name`, `short_name`, `node_hex_username`, `mesh_admin`, `bbs_admin`, `bbs_mail_forward_to`, `has_gps`, `public_key`, `private_key`, `ble_pin`, `hardware`, `comment`, `created`, `updated`
 
-**Required on import:** `long_name`, `short_name`, `node_hex_username`, `public_key`
+**Required on import:** `long_name`, `short_name`, `node_hex_username`
 
 **Y/N columns:** `mesh_admin`, `bbs_admin`, `has_gps` (invalid values default to `N`)
 
