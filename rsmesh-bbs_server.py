@@ -45,6 +45,7 @@ from rsmesh_bbs.db_operations import (
 from rsmesh_bbs.module_loader import ModuleManager
 from rsmesh_bbs.time_format import format_relative_time
 from rsmesh_bbs.utils import join_display_fields, drain_outbound_user_messages
+from rsmesh_bbs.urgent_alerts import drain_pending_urgent_alerts
 from rsmesh_bbs.message_processing import on_receive
 from rsmesh_bbs.node_resolution import scan_mesh_nodes_store
 from pubsub import pub
@@ -93,9 +94,11 @@ def main():
                 f"M:{(peer[6] if len(peer) > 6 else 'Y')}/"
                 f"C:{(peer[10] if len(peer) > 10 else 'Y')}"
             )
+            enabled = peer[13] if len(peer) > 13 else 'Y'
             print(
                 "  " + join_display_fields(
                     f"[{peer_id}] {bbs_node}{name_part} ({sync_protocol})",
+                    f"enabled {enabled or 'Y'}",
                     f"last heard {heard}",
                     f"sync out {out_flags}",
                     f"in {in_flags}",
@@ -168,6 +171,7 @@ def main():
     try:
         while True:
             drain_outbound_user_messages()
+            drain_pending_urgent_alerts(interface)
             time.sleep(1)
 
     except KeyboardInterrupt:

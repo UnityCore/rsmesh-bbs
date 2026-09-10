@@ -13,6 +13,10 @@
 # superuser_node - node ID with Urgent bulletin board posting permission
 # sysadmin_nodes table node_hex_username values are also granted permission
 # If neither is configured, posting to the Urgent board is disabled.
+# send_urgent_alert_local - yes/no broadcast on primary channel when an Urgent
+#   bulletin is posted locally (mesh user or admin Add Bulletin). Default: no.
+# send_urgent_alert_from_sync - yes/no broadcast when an Urgent bulletin is
+#   ingested from a sync peer. Default: no.
 # sync_peers table - configure peer BBS nodes with rsmesh-bbs_admin.py
 #
 # Channel directory (see README "Channel directory"):
@@ -23,6 +27,8 @@
 bbs:
   board_name: RSMesh BBS
   eventbus_topic: meshtastic.receive
+  send_urgent_alert_local: no
+  send_urgent_alert_from_sync: no
   # superuser_node: "!17d7e4b7"
 
 

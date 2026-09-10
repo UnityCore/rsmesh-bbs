@@ -288,6 +288,8 @@ Common causes after enabling the venv-based service:
 |---------|----------|-------|
 | Simulated handset identity | `config_client.yml` `client` | `node_id`, `short_name`, and `long_name` for `rsmesh-bbs_client.py` (see `example_config_client.yml`) |
 | Board name, superuser, event bus topic | `config.yml` `bbs` | Banner text, Urgent board permission, and PyPubSub receive topic |
+| Urgent mesh alerts (local) | `config.yml` `bbs` `send_urgent_alert_local` | `yes`/`no` — broadcast on primary channel when an Urgent bulletin is posted on this node (default `no`) |
+| Urgent mesh alerts (sync) | `config.yml` `bbs` `send_urgent_alert_from_sync` | `yes`/`no` — broadcast when an Urgent bulletin is ingested from a sync peer (default `no`) |
 | Radio interface | `config.yml` `interface` | `serial` or `tcp`; set `port` or `hostname` as needed |
 | Peer sync interval | `config.yml` `schedule` | Minutes between retries for unsynced records |
 | Module schedule tick | `config.yml` `schedule` | Minutes between module schedule worker runs (`module_exec_minutes`) |
@@ -304,6 +306,23 @@ Common causes after enabling the venv-based service:
 | Sysadmin nodes | `sysadmin_nodes` table | Configure with `rsmesh-bbs_admin.py` (also seeded from `superuser_node` and node catalog) |
 
 See `example_config.yml` for a commented starter BBS configuration and `example_config_client.yml` for the mesh client handset identity.
+
+### Urgent board alerts
+
+The **Urgent** bulletin board is restricted to sysadmin nodes for posting. When enabled, new Urgent bulletins can trigger a mesh-wide broadcast on the radio primary channel (channel index 0).
+
+| Setting | Default | Behavior |
+|---------|---------|----------|
+| `send_urgent_alert_local` | `no` | Broadcast when a user posts Urgent on this BBS, or when an operator adds an Urgent bulletin in the admin tool |
+| `send_urgent_alert_from_sync` | `no` | Broadcast when an Urgent bulletin arrives from a sync peer |
+
+Both settings use `yes` or `no` (also accepts `y`/`n`). Changes take effect immediately via `sys_config` (admin tool or server restart seeding from `config.yml`).
+
+**Local posts** from mesh users are sent immediately when `send_urgent_alert_local` is `yes`. **Admin Add Bulletin** queues the alert in the database; the running server delivers it on the main loop (typically within about one second). Editing a bulletin does not queue or send an alert.
+
+If `send_urgent_alert_local` is turned off while alerts are queued, the server drops queued rows without sending. Queued alerts are only created when the setting is `yes` at add time.
+
+Before sending a queued alert, the server verifies the bulletin still exists and is still on the Urgent board.
 
 ## Channel directory
 
@@ -332,6 +351,8 @@ Configure sync peers in the admin tool. **Ingest channels in** controls whether 
 ## Admin tool
 
 Run `rsmesh-bbs_admin.py` from the project directory with the [virtual environment](#setup-virtual-environment) activated (same as the server). It manages bulletins, mail, channels, the node catalog, sync peers, modules, and bulletin delete reconciliation. Module-specific admin screens live in `modules/<name>/<name>_admin.py` and are linked from **Administration → Modules**. Shared display helpers (page headers, pagination, record detail views) are in `admin_ui.py` for use by core and module admin code.
+
+See [README-ADMIN.md](README-ADMIN.md) for a complete guide to every admin menu, input prompt, and valid choice.
 
 Sync peer and sysadmin changes made in the admin tool are picked up by the running server automatically (on the next mesh message or background worker cycle).
 

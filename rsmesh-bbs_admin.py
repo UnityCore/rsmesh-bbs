@@ -484,6 +484,11 @@ def add_bulletin_entry():
         return
     content = _read_multiline_content()
     unique_id = add_bulletin(board, sender_short_name, subject, content, None, None)
+    if board == "Urgent":
+        from rsmesh_bbs.urgent_alerts import enqueue_pending_urgent_alert, urgent_alert_local_enabled
+
+        if urgent_alert_local_enabled():
+            enqueue_pending_urgent_alert(unique_id, sender_short_name, subject)
     _finish_action_message(f"Bulletin added (unique ID: {unique_id}).", "Add Bulletin")
 
 def edit_bulletin_entry():
@@ -1227,7 +1232,7 @@ def _sync_peer_alert_field(peer):
     return f"Alert: received RS v{seen}"
 
 
-def _sync_peer_flag_lines(peer):
+def _sync_peer_flag_lines(peer, last_heard_label=None):
     if len(peer) < 8:
         sync_bulletins, sync_mail, sync_channels = 'Y', 'Y', 'Y'
         sync_mesh_nodes = 'N'
@@ -1237,6 +1242,12 @@ def _sync_peer_flag_lines(peer):
         sync_mesh_nodes = peer[8] if len(peer) > 8 else 'N'
         ingest_bulletins = peer[9] if len(peer) > 9 else 'Y'
         ingest_channels = peer[10] if len(peer) > 10 else 'Y'
+    mail_line_fields = [
+        f"Mail: {sync_mail or 'Y'}",
+        f"Mesh nodes: {sync_mesh_nodes or 'N'}",
+    ]
+    if last_heard_label:
+        mail_line_fields.append(f"Last heard: {last_heard_label}")
     return [
         "  " + join_display_fields(
             f"In: bulletins {ingest_bulletins or 'Y'}",
@@ -1244,10 +1255,7 @@ def _sync_peer_flag_lines(peer):
             f"Out: bulletins {sync_bulletins or 'Y'}",
             f"channels {sync_channels or 'Y'}",
         ),
-        "  " + join_display_fields(
-            f"Mail: {sync_mail or 'Y'}",
-            f"Mesh nodes: {sync_mesh_nodes or 'N'}",
-        ),
+        "  " + join_display_fields(*mail_line_fields),
     ]
 
 
@@ -1264,15 +1272,16 @@ def _sync_peer_lines(rows):
         ]
         if bbs_name:
             fields.append(f"Name: {bbs_name}")
+        enabled = peer[13] if len(peer) > 13 else 'Y'
         fields.extend([
             f"Protocol: {sync_protocol}",
-            f"Last heard: {heard}",
+            f"Enabled: {enabled or 'Y'}",
         ])
         alert = _sync_peer_alert_field(peer)
         if alert:
             fields.append(alert)
         lines.append(join_display_fields(*fields))
-        lines.extend(_sync_peer_flag_lines(peer))
+        lines.extend(_sync_peer_flag_lines(peer, heard))
     return lines
 
 def list_sync_peers():
@@ -1292,6 +1301,7 @@ def add_sync_peer_entry():
         sync_mesh_nodes = _normalize_yn(input_bold("Sync mesh nodes out/in (Y/N) [Y]: "), 'Y')
     ingest_bulletins = _normalize_yn(input_bold("Ingest bulletins in (Y/N) [Y]: "), 'Y')
     ingest_channels = _normalize_yn(input_bold("Ingest channels in (Y/N) [Y]: "), 'Y')
+    enabled = _normalize_yn(input_bold("Enabled (Y/N) [Y]: "), 'Y')
     if not bbs_node:
         _finish_action_message("BBS node is required.", "Add Sync Peer")
         return
@@ -1305,6 +1315,7 @@ def add_sync_peer_entry():
         sync_mesh_nodes=sync_mesh_nodes,
         ingest_bulletins=ingest_bulletins,
         ingest_channels=ingest_channels,
+        enabled=enabled,
     ):
         _finish_action_message(
             f"Sync peer {bbs_node} added with protocol {sync_protocol}.",
@@ -1344,6 +1355,7 @@ def edit_sync_peer_entry():
     sync_mesh_nodes = current[8] if len(current) > 8 else 'N'
     ingest_bulletins = current[9] if len(current) > 9 else 'Y'
     ingest_channels = current[10] if len(current) > 10 else 'Y'
+    enabled = current[13] if len(current) > 13 else 'Y'
     print_bold("Press Enter to keep the current value.")
     bbs_node = input_bold(f"BBS node [{bbs_node}]: ").strip() or bbs_node
     bbs_name = input_bold(f"BBS name [{bbs_name or ''}]: ").strip() or bbs_name
@@ -1375,6 +1387,10 @@ def edit_sync_peer_entry():
         input_bold(f"Ingest channels in (Y/N) [{ingest_channels}]: "),
         ingest_channels,
     )
+    enabled = _normalize_yn(
+        input_bold(f"Enabled (Y/N) [{enabled}]: "),
+        enabled,
+    )
     if update_sync_peer(
         peer_id,
         bbs_node,
@@ -1386,6 +1402,7 @@ def edit_sync_peer_entry():
         sync_mesh_nodes=sync_mesh_nodes,
         ingest_bulletins=ingest_bulletins,
         ingest_channels=ingest_channels,
+        enabled=enabled,
     ):
         _finish_action_message(f"Sync peer {peer_id} updated.", "Edit Sync Peer")
     else:
