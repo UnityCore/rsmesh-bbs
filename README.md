@@ -1,5 +1,7 @@
 # RSMesh BBS
 
+Release 1.0
+
 A Meshtastic bulletin board system with mail, channels, peer sync, and an admin tool.
 
 Based on (and sync compatible with) [TC²-BBS-Mesh](https://github.com/TheCommsChannel/TC2-BBS-mesh).

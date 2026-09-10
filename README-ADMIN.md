@@ -1,5 +1,7 @@
 # RSMesh BBS Admin Tool
 
+Release 1.0
+
 Interactive terminal admin for managing the BBS database, sync peers, modules, and related configuration. The admin tool does not require a radio connection.
 
 ## Requirements
