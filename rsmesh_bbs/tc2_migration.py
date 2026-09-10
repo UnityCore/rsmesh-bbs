@@ -211,6 +211,7 @@ def _upgrade_sync_peers_schema(c):
     _add_column_if_missing(c, "sync_peers", "ingest_channels", "TEXT NOT NULL DEFAULT 'Y'")
     _add_column_if_missing(c, "sync_peers", "rs_version_alert", "TEXT NOT NULL DEFAULT 'N'")
     _add_column_if_missing(c, "sync_peers", "rs_wire_version_seen", "INTEGER")
+    _add_column_if_missing(c, "sync_peers", "enabled", "TEXT NOT NULL DEFAULT 'Y'")
     c.execute(
         "UPDATE sync_peers SET sync_mesh_nodes = 'N' WHERE sync_protocol = 'tc2'"
     )

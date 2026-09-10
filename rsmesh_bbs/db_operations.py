@@ -46,8 +46,10 @@ PEER_SYNC_FLAG_COLUMNS = {
 PEER_ROW_SELECT = (
     "id, bbs_node, bbs_name, sync_protocol, last_heard, "
     "sync_bulletins, sync_mail, sync_channels, sync_mesh_nodes, ingest_bulletins, ingest_channels, "
-    "rs_version_alert, rs_wire_version_seen"
+    "rs_version_alert, rs_wire_version_seen, enabled"
 )
+
+PEER_ENABLED_INDEX = 13
 
 
 def _peer_id_for_bbs_node(bbs_node):
@@ -96,7 +98,7 @@ def _count_synced_peers_for_record(record_type, record_key):
         f"SELECT COUNT(*) FROM record_sync_peers rsp "
         f"JOIN sync_peers sp ON sp.id = rsp.peer_id "
         f"WHERE rsp.record_type = ? AND rsp.record_key = ? AND rsp.synced = 'Y' "
-        f"AND sp.{flag_column} = 'Y'",
+        f"AND sp.enabled = 'Y' AND sp.{flag_column} = 'Y'",
         (record_type, record_key),
     )
     return c.fetchone()[0]
@@ -139,7 +141,9 @@ def _mark_inbound_sync_complete(record_type, record_key):
         return
     conn = get_db_connection()
     c = conn.cursor()
-    for (peer_id,) in c.execute(f"SELECT id FROM sync_peers WHERE {flag_column} = 'Y'"):
+    for (peer_id,) in c.execute(
+        f"SELECT id FROM sync_peers WHERE enabled = 'Y' AND {flag_column} = 'Y'"
+    ):
         c.execute(
             "INSERT INTO record_sync_peers (record_type, record_key, peer_id, synced) "
             "VALUES (?, ?, ?, 'Y') "
@@ -174,9 +178,11 @@ def _count_configured_sync_peers(record_type):
     conn = get_db_connection()
     c = conn.cursor()
     if not flag_column:
-        c.execute("SELECT COUNT(*) FROM sync_peers")
+        c.execute("SELECT COUNT(*) FROM sync_peers WHERE enabled = 'Y'")
     else:
-        c.execute(f"SELECT COUNT(*) FROM sync_peers WHERE {flag_column} = 'Y'")
+        c.execute(
+            f"SELECT COUNT(*) FROM sync_peers WHERE enabled = 'Y' AND {flag_column} = 'Y'"
+        )
     return c.fetchone()[0]
 
 
@@ -303,7 +309,8 @@ def _record_needs_peer_sync_clause(record_type, table_alias, key_column):
              AND rsp.record_key = {table_alias}.{key_column}
              AND rsp.peer_id = sp.id
              AND rsp.synced = 'Y'
-            WHERE sp.{flag_column} = 'Y'
+            WHERE sp.enabled = 'Y'
+              AND sp.{flag_column} = 'Y'
               AND rsp.peer_id IS NULL
         )
     )"""
@@ -539,7 +546,8 @@ def initialize_database(quiet=False):
                     ingest_bulletins TEXT NOT NULL DEFAULT 'Y',
                     ingest_channels TEXT NOT NULL DEFAULT 'Y',
                     rs_version_alert TEXT NOT NULL DEFAULT 'N',
-                    rs_wire_version_seen INTEGER
+                    rs_wire_version_seen INTEGER,
+                    enabled TEXT NOT NULL DEFAULT 'Y'
                 )''')
     c.execute('''CREATE TABLE IF NOT EXISTS sys_config (
                     cfg_section TEXT NOT NULL,
@@ -1385,6 +1393,7 @@ def add_sync_peer(
     sync_mesh_nodes=None,
     ingest_bulletins='Y',
     ingest_channels='Y',
+    enabled='Y',
 ):
     bbs_node = (bbs_node or '').strip()
     bbs_name = (bbs_name or '').strip() or None
@@ -1395,6 +1404,7 @@ def add_sync_peer(
     sync_mesh_nodes = _apply_sync_mesh_nodes_for_protocol(sync_protocol, sync_mesh_nodes)
     ingest_bulletins = _normalize_sync_flag(ingest_bulletins)
     ingest_channels = _normalize_sync_flag(ingest_channels)
+    enabled = _normalize_sync_flag(enabled)
     if not bbs_node or not sync_protocol:
         return False
 
@@ -1404,18 +1414,25 @@ def add_sync_peer(
         c.execute(
             "INSERT INTO sync_peers "
             "(bbs_node, bbs_name, sync_protocol, last_heard, sync_bulletins, sync_mail, sync_channels, "
-            "sync_mesh_nodes, ingest_bulletins, ingest_channels) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "sync_mesh_nodes, ingest_bulletins, ingest_channels, enabled) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 bbs_node, bbs_name, sync_protocol, int(time.time()),
                 sync_bulletins, sync_mail, sync_channels, sync_mesh_nodes,
-                ingest_bulletins, ingest_channels,
+                ingest_bulletins, ingest_channels, enabled,
             ),
         )
         conn.commit()
         return True
     except sqlite3.IntegrityError:
         return False
+
+
+def _clear_peer_record_sync(peer_id):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("DELETE FROM record_sync_peers WHERE peer_id = ?", (peer_id,))
+    conn.commit()
 
 
 def _clear_disabled_peer_sync_state(peer_id, sync_bulletins, sync_mail, sync_channels, sync_mesh_nodes='Y'):
@@ -1452,6 +1469,7 @@ def update_sync_peer(
     sync_mesh_nodes=None,
     ingest_bulletins='Y',
     ingest_channels='Y',
+    enabled='Y',
 ):
     bbs_node = (bbs_node or '').strip()
     bbs_name = (bbs_name or '').strip() or None
@@ -1462,6 +1480,7 @@ def update_sync_peer(
     sync_mesh_nodes = _apply_sync_mesh_nodes_for_protocol(sync_protocol, sync_mesh_nodes)
     ingest_bulletins = _normalize_sync_flag(ingest_bulletins)
     ingest_channels = _normalize_sync_flag(ingest_channels)
+    enabled = _normalize_sync_flag(enabled)
     if not peer_id or not bbs_node or not sync_protocol:
         return False
 
@@ -1471,19 +1490,22 @@ def update_sync_peer(
         c.execute(
             "UPDATE sync_peers SET bbs_node = ?, bbs_name = ?, sync_protocol = ?, last_heard = ?, "
             "sync_bulletins = ?, sync_mail = ?, sync_channels = ?, sync_mesh_nodes = ?, "
-            "ingest_bulletins = ?, ingest_channels = ?, rs_version_alert = 'N', "
+            "ingest_bulletins = ?, ingest_channels = ?, enabled = ?, rs_version_alert = 'N', "
             "rs_wire_version_seen = NULL WHERE id = ?",
             (
                 bbs_node, bbs_name, sync_protocol, int(time.time()),
                 sync_bulletins, sync_mail, sync_channels, sync_mesh_nodes,
-                ingest_bulletins, ingest_channels, peer_id,
+                ingest_bulletins, ingest_channels, enabled, peer_id,
             ),
         )
         conn.commit()
         if c.rowcount > 0:
-            _clear_disabled_peer_sync_state(
-                peer_id, sync_bulletins, sync_mail, sync_channels, sync_mesh_nodes,
-            )
+            if enabled == 'N':
+                _clear_peer_record_sync(peer_id)
+            else:
+                _clear_disabled_peer_sync_state(
+                    peer_id, sync_bulletins, sync_mail, sync_channels, sync_mesh_nodes,
+                )
             _refresh_all_aggregate_synced()
         return c.rowcount > 0
     except sqlite3.IntegrityError:

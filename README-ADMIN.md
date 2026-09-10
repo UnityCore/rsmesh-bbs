@@ -201,7 +201,7 @@ Select: `Enter sysadmin ID or X=cancel:`
 
 ### Sync Peers
 
-Configure remote BBS nodes for bulletin, mail, channel, and mesh-node synchronization.
+Configure remote BBS nodes for bulletin, mail, channel, and mesh-node synchronization. Set **Enabled** to **`N`** to pause all sync to and from a peer while it is offline for maintenance; the peer's sync flags are preserved and take effect again when re-enabled.
 
 | Option | Action |
 |--------|--------|
@@ -214,7 +214,7 @@ Configure remote BBS nodes for bulletin, mail, channel, and mesh-node synchroniz
 
 #### List Sync Peers — fields per peer
 
-**Line 1:** ID, Node, Name (if set), Protocol, Last heard (relative time), optional `Alert: received RS v{version}`
+**Line 1:** ID, Node, Name (if set), Protocol, Enabled (Y/N), Last heard (relative time), optional `Alert: received RS v{version}`
 
 **Line 2:** `In: bulletins {Y/N}  channels {Y/N}  Out: bulletins {Y/N}  channels {Y/N}`
 
@@ -235,6 +235,7 @@ RS version alerts appear when a peer sends a sync wire version that does not mat
 | `Sync mesh nodes out/in (Y/N) [Y]:` | Y | **Only for `rsv1`** — mesh node directory sync |
 | `Ingest bulletins in (Y/N) [Y]:` | Y | Accept bulletins from this peer |
 | `Ingest channels in (Y/N) [Y]:` | Y | Accept channel rows from this peer (always ingested as unpublished) |
+| `Enabled (Y/N) [Y]:` | Y | Master on/off for this peer; **`N`** skips all outbound and inbound sync |
 
 **Protocol behavior:**
 - **`tc2`** — TC²-compatible pipe-delimited sync (`BULLETIN|`, `MAIL|`, etc.). Mesh node sync is forced to **`N`**.
@@ -627,9 +628,9 @@ Shown on bulletin, mail, and channel list/detail views:
 
 | Label | Meaning |
 |-------|---------|
-| `Y` | Fully synced to all eligible peers (or no sync peers configured) |
+| `Y` | Fully synced to all eligible **enabled** peers (or no eligible peers configured) |
 | `N` | Not synced to any eligible peer |
-| `n/total` | Synced to *n* of *total* eligible peers |
+| `n/total` | Synced to *n* of *total* eligible enabled peers |
 | `*` | Channels only — unpublished (`publish=N`); not synced |
 
 ### Sync protocols

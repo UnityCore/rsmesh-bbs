@@ -93,9 +93,11 @@ def main():
                 f"M:{(peer[6] if len(peer) > 6 else 'Y')}/"
                 f"C:{(peer[10] if len(peer) > 10 else 'Y')}"
             )
+            enabled = peer[13] if len(peer) > 13 else 'Y'
             print(
                 "  " + join_display_fields(
                     f"[{peer_id}] {bbs_node}{name_part} ({sync_protocol})",
+                    f"enabled {enabled or 'Y'}",
                     f"last heard {heard}",
                     f"sync out {out_flags}",
                     f"in {in_flags}",

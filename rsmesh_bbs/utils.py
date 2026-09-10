@@ -372,8 +372,20 @@ PEER_INGEST_FLAG_INDEX = {
     'channels': 10,
 }
 
+PEER_ENABLED_INDEX = 13
+
+
+def peer_enabled(peer):
+    if peer is None:
+        return False
+    if len(peer) <= PEER_ENABLED_INDEX:
+        return True
+    return (peer[PEER_ENABLED_INDEX] or 'Y').strip().upper() == 'Y'
+
 
 def peer_sync_enabled(peer, record_type):
+    if not peer_enabled(peer):
+        return False
     index = PEER_SYNC_FLAG_INDEX.get(record_type)
     if index is None:
         return True
@@ -394,7 +406,7 @@ def peer_ingest_enabled(peer, record_type):
 
 
 def peer_accepts_inbound_sync(peer, record_type):
-    if peer is None:
+    if peer is None or not peer_enabled(peer):
         return False
     if record_type == 'mesh_nodes':
         return peer_sync_enabled(peer, 'mesh_nodes')
@@ -430,7 +442,10 @@ def get_sync_peers_from_interface(interface, fallback_nodes=None):
     if sync_peers:
         return sync_peers
     if fallback_nodes:
-        return [(None, node, None, 'tc2', None, 'Y', 'Y', 'Y', 'N', 'Y', 'Y') for node in fallback_nodes]
+        return [
+            (None, node, None, 'tc2', None, 'Y', 'Y', 'Y', 'N', 'Y', 'Y', 'N', None, 'Y')
+            for node in fallback_nodes
+        ]
     return []
 
 
