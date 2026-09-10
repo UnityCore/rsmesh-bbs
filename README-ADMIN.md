@@ -547,7 +547,9 @@ Import mode: Replace (`R`) or Append (`A`, default).
 
 ## Mesh Nodes
 
-Tracks nodes seen on the mesh (for sync and resolution). Populated by the BBS from live traffic and RS sync; can also be managed manually here.
+Core **minimal node directory** in the main database (`mesh_nodes`): hex node ID, short name, long name, and last heard. The server populates it automatically from live mesh traffic and from **rsv1** peer sync when **Sync mesh nodes** is enabled. This store supports mail recipient lookup, short-name resolution, and mesh-node sync **without** requiring the optional **Node Info** module.
+
+Operators can also add, edit, import, export, or purge rows here. See README [Mesh nodes vs Node Info](README.md#mesh-nodes-vs-node-info).
 
 | Option | Action |
 |--------|--------|
@@ -607,12 +609,14 @@ Reached from **Administration → Modules** when the module is enabled and provi
 
 **Title:** Node Info
 
+Optional module (disable under **Modules** if you do not want enhanced telemetry). Unlike **Mesh Nodes**, which holds minimal IDs/names for core server operation, Node Info maintains a separate database of richer overheard-packet telemetry (signal, GPS, hops, etc.) for operator reference and mesh user statistics.
+
 | Option | Action |
 |--------|--------|
 | `1` | List Node Info |
 | `0` | Back to Modules |
 
-Data comes from `modules/node_info/node_info.db` (not the main BBS database).
+Data comes from `modules/node_info/node_info.db` (not the main BBS database). See README [Mesh nodes vs Node Info](README.md#mesh-nodes-vs-node-info).
 
 **Per node (3 lines):**
 - `{short} - {long} [{node_id}]  Seen: {relative}`

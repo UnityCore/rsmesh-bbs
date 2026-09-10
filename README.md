@@ -401,8 +401,8 @@ Three related stores serve different purposes:
 | Store | Where | Purpose |
 |-------|--------|---------|
 | **Node catalog** | Main DB (`node_catalog`) | Operator-maintained reference (optional notes, mail forward, BBS admin flags) |
-| **Mesh nodes** | Main DB (`mesh_nodes`) | Nodes seen on the air or received via RS mesh-node sync |
-| **Node Info** | `modules/node_info/node_info.db` | Optional module: signal, GPS, hops from overheard packets |
+| **Mesh nodes** | Main DB (`mesh_nodes`) | Core minimal node directory (hex ID, short/long name, last heard) for server operations |
+| **Node Info** | `modules/node_info/node_info.db` | Optional module — enhanced telemetry reference (signal, GPS, hops, etc.) |
 
 ### Short-name and hex ID resolution
 
@@ -414,6 +414,14 @@ When a mesh user sends mail (or sync normalizes a node reference), the server re
 4. **Node catalog** (when a matching short name exists)
 
 Any of these can supply a hex node ID for delivery. The catalog is one helper among several — you do not need catalog rows for nodes the radio already knows.
+
+### Mesh nodes vs Node Info
+
+**Mesh nodes** is part of the core database and is always available. The server maintains it automatically from live mesh traffic (any packet the radio hears) and, when configured, from **rsv1** peer **Sync mesh nodes** ingest. Each row stores only what the BBS needs for day-to-day operation: hex node ID, short name, long name, and last heard. That minimal record supports mail recipient lookup, short-name resolution when the radio’s live node list is incomplete, and mesh-node sync between peers — **even when the Node Info module is disabled**.
+
+**Node Info** is an **optional module** (enabled by default, but you can turn it off under **Administration → Modules**). It keeps a separate, richer telemetry database: SNR, RSSI, hop count, GPS coordinates, channel-quality estimates, and related fields gathered from overheard packets. Mesh users reach it from **[M]odules** for node counts and statistics; sysadmins can list detailed rows. Think of Node Info as an **enhanced telemetry reference**, not a requirement for core BBS features.
+
+If Node Info is off, mail, sync, and short-name resolution still work through the attached radio’s live node list, the **mesh nodes** table, and the optional **node catalog**.
 
 ### Node catalog (operator reference)
 
@@ -433,9 +441,9 @@ You may store keys and PINs for your own reference, but the BBS never uses them 
 
 **Mesh Admin** (`mesh_admin`) is an operator notebook flag: it marks that you intend a device to be remotely administrable over Meshtastic. The BBS does **not** enforce mesh admin from this field. To actually allow remote admin, you must configure each radio in **Radio Config → Security → Admin Settings** (add the administrator device public key on the target node). Keep the catalog `public_key` field as your optional record of that node's key for fleet management.
 
-**Mesh nodes** are updated from live traffic and optional `rsv1` peer sync (**Sync mesh nodes** on sync peers). Operators can also add, edit, import, or purge them in the admin tool.
+**Mesh nodes** — see [Mesh nodes vs Node Info](#mesh-nodes-vs-node-info). Operators can also add, edit, import, or purge rows in the admin tool (**Administration → Mesh Nodes**).
 
-**Node Info** (enabled by default) exposes mesh statistics to users via **[M]odules**. Sysadmins can list detailed rows. Configure purge/scan intervals in `modules/node_info/config.yml`.
+**Node Info** — optional enhanced telemetry module; configure purge/scan in `modules/node_info/config.yml`. See [Shipped modules (mesh menus)](#shipped-modules-mesh-menus).
 
 ## Channel directory
 
