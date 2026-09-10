@@ -351,8 +351,21 @@ Common causes after enabling the venv-based service:
 
 ### Sync wire formats
 
-- **tc2** — pipe-delimited messages (`BULLETIN|`, `MAIL|`, …) for TC²-BBS-mesh compatibility.
-- **rsv1** (and later **rsvN**) — `RS|N|TYPE|{json}` only; pipe messages from RS peers are ignored. The digit `N` matches the peer protocol label (`rsv1` → `RS|1|…`). JSON uses compact keys (for example bulletin `b`, `sn`, `sub`, `body`, `uid`). Oversized RS sync payloads are split into `RS|N|CHUNK|{...}` packets and reassembled on ingest. Inbound RS messages accept version fallback when wire and configured versions differ; mismatches surface as **Sync alerts** in the admin tool. **tc2** sync messages must fit in a single 200-byte mesh packet.
+RSMesh BBS supports two peer sync protocol families. Choose the protocol per sync peer in the admin tool. **tc2** preserves wire compatibility with [TC²-BBS-mesh](https://github.com/TheCommsChannel/TC2-BBS-mesh); **rsv1** is the RSMesh extended format for operators running RSMesh (or other RS-aware) peers.
+
+| Topic | **tc2** | **rsv1** |
+|-------|---------|----------|
+| On-wire shape | Pipe-delimited (`BULLETIN\|`, `MAIL\|`, …) | `RS\|N\|TYPE\|{json}` only; pipe messages from RS peers are ignored |
+| TC² compatibility | Yes — follows TC²-BBS-mesh sync conventions | No — RS peers must also use rsv1 |
+| Packet size | Single mesh packet (200 bytes max) | Chunked `RS\|N\|CHUNK\|{...}` reassembly for oversized payloads |
+| Bulletin ingest | Insert-only by `unique_id` (duplicate ingests skipped) | Upsert by `unique_id` (edits and pin changes propagate) |
+| Pinned bulletins | Not on the wire; pin state is local to each node | `pin` field (`Y`/`N`) in bulletin JSON |
+| Mesh node sync | Not supported | `NODE` messages when **Sync mesh nodes** is enabled |
+| Channel delete sync | Reconcile workflow | `DELETE_CHANNEL` by `unique_id` |
+
+**tc2** behavior intentionally tracks TC² standards: bulletin sync is create-only, and features such as pinned posts or bulletin edits after the initial sync are not replicated to tc2 peers.
+
+**rsv1** (and later **rsvN**) uses compact JSON keys (for example bulletin `b`, `sn`, `sub`, `body`, `uid`, `pin`). The digit `N` matches the peer protocol label (`rsv1` → `RS|1|…`). Inbound RS messages accept version fallback when wire and configured versions differ; mismatches surface as **Sync alerts** in the admin tool.
 
 | Sysadmin nodes | `sysadmin_nodes` table | Configure with `rsmesh-bbs_admin.py` (also seeded from `superuser_node` and node catalog) |
 
@@ -384,7 +397,7 @@ Operators can pin important bulletins so they stay visible on mesh boards longer
 | **Mesh users** | Pinned bulletins (`pinned = Y`) always appear in board lists and can be read, regardless of age. Non-pinned bulletins drop off after `schedule.bulletin_display_age_days` (default 30 days). Pinned entries are listed first on each board. |
 | **Admin tool** | All non-deleted bulletins, including older unpinned posts, for full management. |
 
-New bulletins are unpinned by default. Changing the pinned flag (or other bulletin fields) in **Edit Bulletin** marks the record unsynced so the update can sync to peers.
+New bulletins are unpinned by default. Changing the pinned flag (or other bulletin fields) in **Edit Bulletin** marks the record unsynced so the update can sync to **rsv1** peers. **tc2** peers receive only the original bulletin create and do not get pin or edit updates.
 
 ## Mail forwarding
 

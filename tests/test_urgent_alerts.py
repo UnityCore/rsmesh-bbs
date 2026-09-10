@@ -2,7 +2,7 @@ import pytest
 
 from rsmesh_bbs import db_operations
 from rsmesh_bbs.config_init import parse_config_value
-from rsmesh_bbs.message_processing import _sync_ingest_bulletin
+from rsmesh_bbs.message_processing import _sync_ingest_bulletin_tc2
 from rsmesh_bbs.mock_interface import MockMeshInterface
 from rsmesh_bbs.urgent_alerts import (
     drain_pending_urgent_alerts,
@@ -104,7 +104,7 @@ class TestUrgentAlertSending:
         )
         _set_bbs_config("send_urgent_alert_from_sync", "true")
 
-        _sync_ingest_bulletin(
+        _sync_ingest_bulletin_tc2(
             "Urgent", "PEER", "Incoming", "Body", "sync-uid-2", interface,
         )
         assert sent == [("PEER", "Incoming")]

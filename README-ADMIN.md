@@ -238,8 +238,8 @@ RS version alerts appear when a peer sends a sync wire version that does not mat
 | `Enabled (Y/N) [Y]:` | Y | Master on/off for this peer; **`N`** skips all outbound and inbound sync |
 
 **Protocol behavior:**
-- **`tc2`** — TC²-compatible pipe-delimited sync (`BULLETIN|`, `MAIL|`, etc.). Mesh node sync is forced to **`N`**.
-- **`rsv1`** — RS wire format (`RS|1|TYPE|{json}`). Supports mesh node sync and RS version negotiation.
+- **`tc2`** — TC²-compatible pipe-delimited sync (`BULLETIN|`, `MAIL|`, etc.). Maintains TC²-BBS-mesh conventions: bulletin sync is **create-only** (duplicate `unique_id` ingests are skipped; pin/edit updates are **not** sent). Mesh node sync is forced to **`N`**. Messages must fit in one 200-byte packet.
+- **`rsv1`** — RS wire format (`RS|1|TYPE|{json}`). Supports bulletin **upsert** by `unique_id` (edits and **Pinned** changes propagate), chunked oversized payloads, mesh node sync, and RS version negotiation. See README [Sync wire formats](README.md#sync-wire-formats).
 
 Duplicate `bbs_node` values are rejected on add.
 
@@ -341,9 +341,9 @@ New bulletins are **not** pinned (`Pinned: N`). Use **Edit Bulletin** to pin or 
 
 Select: `Enter ID or X=cancel:`
 
-Editable: Board, Poster short name, Subject, Pinned (Y/N). Optional content re-entry when `Edit content? (Y/N) [N]:` is **`Y`**. Saving resets sync status.
+Editable: Board, Poster short name, Subject, Pinned (Y/N). Optional content re-entry when `Edit content? (Y/N) [N]:` is **`Y`**. Saving resets sync status so **rsv1** peers receive the update. **tc2** peers keep the original bulletin only.
 
-**Pinned (Y/N):** When `Y`, the bulletin stays on mesh board menus and read lists regardless of `schedule.bulletin_display_age_days`. Pinned posts are listed before unpinned posts on the mesh. When `N`, the bulletin is subject to the display-age limit like any normal post. Mesh users cannot change this flag; only the admin tool can. See README “Pinned bulletins”.
+**Pinned (Y/N):** When `Y`, the bulletin stays on mesh board menus and read lists regardless of `schedule.bulletin_display_age_days`. Pinned posts are listed before unpinned posts on the mesh. When `N`, the bulletin is subject to the display-age limit like any normal post. Mesh users cannot change this flag; only the admin tool can. Pin changes sync to **rsv1** peers only. See README “Pinned bulletins”.
 
 ### Delete Bulletins
 
@@ -655,10 +655,12 @@ Shown on bulletin, mail, and channel list/detail views:
 
 ### Sync protocols
 
-| Protocol | Wire format | Mesh node sync |
-|----------|-------------|----------------|
-| `tc2` | Pipe-delimited (`BULLETIN|`, `MAIL|`, …) | Not supported |
-| `rsv1` | `RS\|1\|TYPE\|{json}` | Supported when enabled per peer |
+| Protocol | Wire format | Bulletin updates | Pinned on wire | Mesh node sync |
+|----------|-------------|------------------|----------------|----------------|
+| `tc2` | Pipe-delimited (`BULLETIN|`, `MAIL|`, …) | Create-only (TC² standard) | No | Not supported |
+| `rsv1` | `RS\|1\|TYPE\|{json}` | Upsert by `unique_id` | Yes (`pin`) | Supported when enabled per peer |
+
+See README [Sync wire formats](README.md#sync-wire-formats) for the full comparison.
 
 ### Node ID format
 
