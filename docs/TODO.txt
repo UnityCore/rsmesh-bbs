@@ -1,0 +1,48 @@
+TODO for Release 1.1
+====================
+
+- Dynamic Main Menu
+    - Track valid menu options or easily determine at runtime
+    - Generate a generic two-column menu ASCII file by default
+      - If no operator override
+    - Allow operator to create their own ASCII file with menu text
+      - This is operator override
+      - Should probably have some limitations to avoid over-sized messages on mesh
+    - Allow module selection option key on main menu
+      - Toggle in module table?
+      - Allow suppress Modules menu option on Main Menu?
+    - Bulletin, Channel, and Mail menus are fixed format as in Rel 1.0
+
+- Device Blacklist
+    - Ability to ban user by hex node id for misbehaving users
+    - Would be good to send an explanation in a message
+    - Would be good to make it a limited period ban (say 1 day, a week, etc) or
+      permanent
+
+TODO for Release 1.2
+====================
+
+- MQTT Integration
+    - Topic Structure
+      - MESH_BBS/{Originating_System_ID}/RS/{Protocol_Version}/{Type}/{json-payload}
+      - Can't think of a way to limit visibility for any users that have access to
+        the MQTT server.  Could operate with this topic structure and let peers set
+        up listeners as "subscribers".  Very different than the point-to-point nature
+        of mesh peers.
+    - Could be used to enable IP/Internet sync between boards
+    - Could allow system operators to decide what {Type}s get published
+    - Would be good if a board could publish to multiple MQTT servers
+
+- Event/Calendar Module
+    - Optional Module using module framework
+    - Used to inform of coming events
+    - Track event name, day, month, year, start_time, end_time, location
+    - Have optional detail message as free text that mesh user can request when viewing
+      event list to be sent as a separate message (could have a website url, etc)
+    - Create through mesh and admin tool
+    - Cancel (Delete) through mesh by posting hex node id only (user can delete their own)
+    - Edit/Delete by admin tool
+    - Allow mesh users to set reminder for event.  Give option to send reminder week before,
+      day before, both
+
+
