@@ -512,7 +512,7 @@ Sync peer and sysadmin changes made in the admin tool are picked up by the runni
 
 ## Modules
 
-Mesh modules extend the BBS without modifying core code. Each module lives in `modules/<name>/`:
+Mesh modules extend the BBS without modifying core code. See [docs/README-MODULES.md](docs/README-MODULES.md) for the full development guide. Each module lives in `modules/<name>/`:
 
 | File | Purpose |
 |------|---------|
@@ -548,7 +548,7 @@ Enable under **Administration → Modules**. Users open them from **[M]odules** 
 | **Node Info** | (per `modules` table) | `[N]odes` counts by time window, `[H]ardware` model counts, `[R]oles` role counts; sysadmins also get `[L]ist Nodes` (detailed signal/GPS lines) |
 | **Example Hello** | (disabled by default) | Greets on entry; demonstrates visits DB and scheduled greetings |
 
-Fortune has no admin screen. Node Info admin is view-only (**List Node Info**). See [modules/README.md](modules/README.md) for module development.
+Fortune has no admin screen. Node Info admin is view-only (**List Node Info**). See [docs/README-MODULES.md](docs/README-MODULES.md) for module development.
 
 ## Thanks to
 

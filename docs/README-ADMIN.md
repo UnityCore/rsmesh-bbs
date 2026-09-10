@@ -286,7 +286,7 @@ Select: `Enter module ID or X=cancel:`
 
 #### Module admin submenus
 
-Enabled modules with `modules/{dir}/{dir}_admin.py` appear as additional numbered options. See [Module admin screens](#module-admin-screens) below.
+Enabled modules with `modules/{dir}/{dir}_admin.py` appear as additional numbered options. See [Module admin screens](#module-admin-screens) below and [README-MODULES.md](README-MODULES.md) for module development.
 
 ### Backup
 

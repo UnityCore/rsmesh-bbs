@@ -92,7 +92,7 @@ Interval is in **minutes**. Tasks run only while the module is enabled and sched
 
 ## Optional admin UI
 
-Add `{module_dir}_admin.py` beside `module.py` (for example `node_info/node_info_admin.py`). The SysAdmin app loads it when the module is enabled and the file exists.
+Add `{module_dir}_admin.py` beside `module.py` (for example `modules/node_info/node_info_admin.py`). The SysAdmin app loads it when the module is enabled and the file exists.
 
 ### Admin module contract
 
@@ -161,7 +161,7 @@ if result is not False:
 
 For multi-step forms or success messages after add/edit, core admin also uses helpers in `rsmesh-bbs_admin.py` (`begin_form_screen`, `_finish_action_message`, etc.). Module code can import those from the main admin module if needed; list/detail flows should prefer `admin_ui` above.
 
-See `node_info/node_info_admin.py` and `example_hello/example_hello_admin.py` for minimal examples.
+See `modules/node_info/node_info_admin.py` and `modules/example_hello/example_hello_admin.py` for minimal examples.
 
 ## Optional config
 
@@ -169,9 +169,9 @@ See `node_info/node_info_admin.py` and `example_hello/example_hello_admin.py` fo
 
 ## Examples
 
-- `example_hello/` — minimal module, visit tracking, scheduled greetings via `enqueue_send`
-- `fortune/` — random fortunes from `fortunes.txt` (TC²-style `?? fortune ??` decoration)
-- `node_info/` — stats menus, bundled node list, sysadmin-only list, background scan/purge schedules
+- `modules/example_hello/` — minimal module, visit tracking, scheduled greetings via `enqueue_send`
+- `modules/fortune/` — random fortunes from `fortunes.txt` (TC²-style `?? fortune ??` decoration)
+- `modules/node_info/` — stats menus, bundled node list, sysadmin-only list, background scan/purge schedules
 
 ## Testing a new module
 
