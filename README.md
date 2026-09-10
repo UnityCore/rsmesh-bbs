@@ -367,7 +367,7 @@ RSMesh BBS supports two peer sync protocol families. Choose the protocol per syn
 
 **tc2** behavior intentionally tracks TC² standards: bulletin sync is create-only, and features such as pinned posts or bulletin edits after the initial sync are not replicated to tc2 peers.
 
-**rsv1** (and later **rsvN**) uses compact JSON keys (for example bulletin `b`, `sn`, `sub`, `body`, `uid`, `pin`). The digit `N` matches the peer protocol label (`rsv1` → `RS|1|…`). Inbound RS messages accept version fallback when wire and configured versions differ; mismatches surface as **Sync alerts** in the admin tool.
+**rsv1** (and later **rsvN**) uses compact JSON keys (for example bulletin `b`, `sn`, `sub`, `body`, `uid`, `pin`). The digit `N` matches the peer protocol label (`rsv1` → `RS|1|…`). Inbound RS messages accept version fallback when wire and configured versions differ; mismatches surface as **Sync alerts** in the admin tool. See [rsv1 sync message examples](docs/rsv1-sync-examples.md) for a full set of wire samples.
 
 | Sysadmin nodes | `sysadmin_nodes` table | Configure with `rsmesh-bbs_admin.py` (also seeded from `superuser_node` and node catalog) |
 
@@ -504,7 +504,7 @@ Background workers in the running server (intervals from `config.yml` `schedule`
 
 Run `rsmesh-bbs_admin.py` from the project directory with the [virtual environment](#setup-virtual-environment) activated (same as the server). It manages bulletins, mail, channels, the node catalog, sync peers, modules, and bulletin delete reconciliation. Module-specific admin screens live in `modules/<name>/<name>_admin.py` and are linked from **Administration → Modules**. Shared display helpers (page headers, pagination, record detail views) are in `admin_ui.py` for use by core and module admin code.
 
-See [README-ADMIN.md](README-ADMIN.md) for a complete guide to every admin menu, input prompt, and valid choice.
+See [docs/README-ADMIN.md](docs/README-ADMIN.md) for a complete guide to every admin menu, input prompt, and valid choice.
 
 Sync peer and sysadmin changes made in the admin tool are picked up by the running server automatically (on the next mesh message or background worker cycle).
 
