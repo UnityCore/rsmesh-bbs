@@ -2,71 +2,62 @@
 
 Release 1.1
 
-How mesh users interact with the BBS from a Meshtastic handset (or the in-process [mesh client](RSMESH-BBS-SYSOP-GUIDE.md#mesh-client-no-radio)).
+How to interact with the BBS from a Meshtastic handset.
 
 Send commands as **direct messages to the BBS node**. The server ignores group-channel traffic and messages addressed to other nodes. After connecting, send any letter command or an unrecognized message to open the main menu.
 
-## Main menu
+The following describes the menus for a standard RSMesh BBS system. Individual system operators may choose to disable some core functions, or extend the BBS with optional modules that offer additional features.
 
-```
-[B]ulletins  [C]hannels
-[M]ail       M[o]dules
-E[X]IT
-```
+## Main Menu
 
-| Key | Action |
-|-----|--------|
-| `B` | Bulletin boards |
-| `C` | Channel directory (view published channels or post a new entry) |
-| `M` | Mail submenu (when core mail is enabled) |
-| `O` | Enabled modules (Fortune, Node Info, etc.) |
-| `X` | Main menu (also `E[X]IT` prompts in submenus) |
+Open features from the main menu with the keys described below.
 
-**Mail submenu** (`M`):
+**Bulletins** (`B`) — [Bulletin Boards](#bulletins): Read and post to General, Info, and News boards. Sysadmin may post to Urgent.
 
-```
-= Mail =
-[R]ead Mail  [S]end Mail
-```
+**Channels** (`C`) — [Channel Directory](#channel-directory): View published channels or post a new entry for operator review (Visible after approval).
 
-| Key | Action |
-|-----|--------|
-| `R` | Read mail |
-| `S` | Send mail |
-| `X` | Back to main menu |
+**Mail** (`M`) — [Mail](#mail): Read mail sent to your device, or send mail to other devices.
 
-When core mail is disabled in the admin tool, `[M]ail` is hidden from the main menu. `[B]ulletins` and `[C]hannels` stay visible so an enabled module can register the same menu letter for its own feature.
+**Modules** (`O`) — Optional modules enabled by the operator (for example Fortune or Node Info). Module names, menu keys, and actions vary by system.
 
-Some BBS systems run **optional modules** that extend core features (for example Fortune, Node Info, or custom operator-installed modules). Open **M[o]dules** (`O`) to see what is available on this node; module names, menu keys, and actions vary by system. See [Shipped modules](RSMESH-BBS-SYSOP-GUIDE.md#shipped-modules-mesh-menus) in the Sysop Guide for common examples.
-
-Many submenus accept a two-letter exit shortcut (for example `Rx` runs **R** then returns to the main menu via **X**).
+**Exit** (`X`) — Return to the Main Menu (also available from Sub-Menus as E[X]IT).
 
 ## Bulletins
 
+Open Bulletins from the Main Menu with **`B`**, then choose a Board.
+
 Board menu: `[G]eneral` `[I]nfo` `[N]ews` `[U]rgent`
 
-On a board: `[R]ead` `[P]ost`, and `[D]elete` for **sysadmin** nodes only. **Urgent** posting is also sysadmin-only.
+On a board: `[R]ead` and `[P]ost` for Users (**SysAdmin** required for `[U]rgent`), with `[D]elete` for **SysAdmin** nodes.
 
-- **Read** — pick a bulletin number from the list, then `X` to return to the board menu.
-- **Post** — enter a short subject, then send the body across one or more messages; send `END` on its own line to finish.
-- **Delete** (sysadmin) — pick a bulletin number to soft-delete.
+**Read** — Choose a bulletin number from the list, then `X` to return to the Board Menu.
 
-See [Pinned bulletins](RSMESH-BBS-SYSOP-GUIDE.md#pinned-bulletins) and [Urgent board alerts](RSMESH-BBS-SYSOP-GUIDE.md#urgent-board-alerts) in the Sysop Guide for operator-controlled behavior.
+**Post** — Enter a short subject, then send the body across one or more messages. Send `END` on its own line to finish.
+
+**Delete** (SysAdmin) — Choose a bulletin number to soft-delete.
+
+Some BBS systems broadcast Urgent bulletins as alerts on the primary (0) channel. Older bulletins may stop appearing after a time; pinned bulletins usually stay visible longer.
 
 ## Mail
 
-Open mail from the main menu with **`M`**, then **`R`** (read) or **`S`** (send).
+Open Mail from the Main Menu with **`M`**, then **`R`** (Read) or **`S`** (Send).
 
-**Read mail** — select a message number, then `[K]eep`, `[D]elete`, or `[R]eply`. Reply uses the same multiline `END` flow as posting. An empty inbox returns to the mail submenu.
+**Read Mail** — Select a message number, then `[K]eep`, `[D]elete`, or `[R]eply`. Reply uses the same process as Sending a Mail message.
 
-**Send mail** — enter the recipient **short name** (or pick from a list when several nodes match). Subject, then body with `END` to finish. While you type the body, the BBS may send no reply until `END` (the mesh client hides those empty turns unless you pass `--verbose`). Recipient lookup uses nodes seen on the radio, the [mesh node directory](RSMESH-BBS-SYSOP-GUIDE.md#node-directory), the [node catalog](RSMESH-BBS-SYSOP-GUIDE.md#node-catalog-operator-reference), and the Node Info module when enabled.
+**Send Mail** — Enter the recipient **short name** (or pick from a list when several nodes match). Enter a Subject when prompted, then Body in one or more messages. Send `END` by itself to finish. While you type the body, the BBS will not reply until `END`.
 
 ## Channel directory
 
-`[V]iew` — list published channels and show name/PSK for a selected entry.
+Open the Channel Directory from the Main Menu with **`C`**.
 
-`[P]ost` — submit a channel name and PSK for operator review. Mesh posts are stored unpublished until an operator sets **Publish** to `Y` in the admin tool (see [Channel directory](RSMESH-BBS-SYSOP-GUIDE.md#channel-directory) in the Sysop Guide).
+**View** (`V`) — List published channels and show the Channel Name and Public Key (PSK) for a selected entry.
 
-## Sysadmin capabilities on the mesh
+**Post** (`P`) — Submit a Channel Name and Public Key (PSK) for operator review. Posts are visible after SysAdmin approval.
 
-Sysadmin nodes (`sysadmin_nodes`, seeded from `bbs.superuser_node` and node catalog **BBS Admin**) can post to **Urgent**, delete bulletins on any board, and use extra module actions where documented (for example Node Info **List Nodes**).
+## Shared Information
+
+Bulletins, channels, and mail you see on a BBS may have been posted on that system or shared from another BBS on the mesh. What is available can vary from one BBS to another.
+
+## SysAdmin Capabilities on the Mesh
+
+**Sysadmin** nodes have additional options on some Menus as outlined above, including posting to Urgent, deleting bulletins, and extra actions in some modules.
