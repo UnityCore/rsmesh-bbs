@@ -2,16 +2,29 @@ TODO for Release 1.1
 ====================
 
 - Dynamic Main Menu
-    - Track valid menu options or easily determine at runtime
-    - Generate a generic two-column menu ASCII file by default
-      - If no operator override
-    - Allow operator to create their own ASCII file with menu text
-      - This is operator override
-      - Should probably have some limitations to avoid over-sized messages on mesh
-    - Allow module selection option key on main menu
-      - Toggle in module table?
-      - Allow suppress Modules menu option on Main Menu?
-    - Bulletin, Channel, and Mail menus are fixed format as in Rel 1.0
+    - Build on existing build_menu() in command_handlers.py (two-column layout today)
+    - Track valid menu options at runtime (enabled modules, mail count in title, etc.)
+    - Generate a generic two-column menu ASCII by default when no operator override
+    - Operator custom menu file (optional, e.g. config path or sys_config)
+      - Display-only override preferred: cosmetic text; keys/behavior stay in code/DB
+      - Enforce mesh packet limit (200 bytes per message); fallback to generated menu
+        if missing, invalid, or oversized
+      - May use multiple packets (send_user_messages) if needed for longer branding
+    - Module keys on main menu (per-module flag, e.g. main_menu_visible on modules table)
+      - Validate menu_option does not collide with core keys B, C, R, S, M, X
+      - Dynamic main_menu_handlers dispatch (core handlers + module get_by_menu_option)
+    - Suppress [M]odules submenu (global flag, e.g. bbs.suppress_modules_menu)
+      - When on, promoted modules are main-menu only (no duplicate listing in submenu)
+    - Hide [M]odules on main menu when nothing needs the submenu:
+      - No enabled modules -> no [M]odules
+      - All enabled modules on main menu AND suppress_modules_menu on -> no [M]odules
+      - Show [M]odules when any enabled module is not on main menu, or when suppress
+        is off and at least one module exists (operator may still want the aggregator)
+    - Bulletin, Channel, and Mail submenus stay fixed format as in Rel 1.0
+    - Suggested phasing:
+      - Phase A: runtime build_menu, hide M when no modules, suppress toggle
+      - Phase B: per-module main_menu_visible, dynamic handler table, key collision checks
+      - Phase C: operator custom menu file with validation and fallback
 
 - Device Blacklist
     - Ability to ban user by hex node id for misbehaving users
