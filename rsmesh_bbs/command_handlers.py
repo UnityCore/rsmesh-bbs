@@ -26,7 +26,7 @@ def _parse_int(message):
         return None
 
 
-def _show_mail_inbox(sender_id, interface, prefix_messages=None):
+def _show_mail_inbox(sender_id, interface, prefix_messages=None, return_to_mail_menu=False):
     sender_node_id = get_node_id_from_num(sender_id, interface)
     mail = get_mail(sender_node_id, interface)
     if mail:
@@ -44,13 +44,16 @@ def _show_mail_inbox(sender_id, interface, prefix_messages=None):
         send_user_messages(messages, sender_id, interface)
         update_user_state(sender_id, {'command': 'MAIL', 'step': 2})
     else:
-        messages = list(prefix_messages or [])
-        if messages:
-            messages.append("No messages.")
-            send_user_messages(messages, sender_id, interface)
+        empty_notice = list(prefix_messages or [])
+        empty_notice.append("No messages.")
+        if return_to_mail_menu:
+            handle_mail_menu_command(sender_id, interface, prefix_messages=empty_notice)
+        elif prefix_messages:
+            send_user_messages(empty_notice, sender_id, interface)
+            update_user_state(sender_id, None)
         else:
             send_user_message("No messages.", sender_id, interface)
-        update_user_state(sender_id, None)
+            update_user_state(sender_id, None)
 
 
 def _send_bulletin_delete_prompt(sender_id, interface, board_name, prefix_messages=None):
@@ -175,7 +178,7 @@ def handle_bulletin_delete_steps(sender_id, message, step, state, interface, bbs
 
 
 def handle_read_mail_command(sender_id, interface):
-    _show_mail_inbox(sender_id, interface)
+    _show_mail_inbox(sender_id, interface, return_to_mail_menu=True)
 
 
 def handle_send_mail_command(sender_id, interface):

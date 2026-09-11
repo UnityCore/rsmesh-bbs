@@ -1946,7 +1946,7 @@ def core_services_menu(back_label="Administration"):
         choice = render_menu_screen("Core Services", body_lines)
         clear_screen()
         if choice == "0":
-            return
+            return False
         try:
             option_index = int(choice) - 1
             if 0 <= option_index < len(CORE_SERVICE_KEYS):

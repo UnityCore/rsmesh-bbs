@@ -32,7 +32,10 @@ class TestMeshClientMenus:
     def test_read_mail_empty_inbox(self, mesh_client):
         mesh_client.send("m")
         replies = mesh_client.send("r")
-        assert any("No messages." in reply for reply in replies)
+        joined = "\n".join(replies)
+        assert "No messages." in joined
+        assert "[R]ead Mail" in joined
+        assert "[S]end Mail" in joined
 
     def test_read_mail_shows_message(self, mesh_client):
         unique_id = str(uuid.uuid4())
