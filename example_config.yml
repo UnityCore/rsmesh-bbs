@@ -27,6 +27,9 @@
 bbs:
   board_name: RSMesh BBS
   eventbus_topic: meshtastic.receive
+  core_bulletins: true
+  core_mail: true
+  core_channels: true
   send_urgent_alert_local: false
   send_urgent_alert_from_sync: false
   # superuser_node: "!17d7e4b7"

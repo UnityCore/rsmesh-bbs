@@ -10,3 +10,6 @@ config.yml
 config_client.yml
 backup/*
 !backup/.gitkeep
+mesh_ui/main_menu.txt
+mesh_ui/main_menu.old
+!mesh_ui/.gitkeep

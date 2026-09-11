@@ -26,6 +26,7 @@ from rsmesh_bbs.version import APP_NAME, VERSION
 from rsmesh_bbs.config_init import initialize_config, get_interface, init_cli_parser, format_board_banner, DEFAULT_CONFIG_FILE
 from rsmesh_bbs.preflight import run_server_preflight
 from rsmesh_bbs.tc2_migration import prepare_tc2_upgrade, import_tc2_sync_peers_from_ini
+from rsmesh_bbs.core_services import ensure_core_services_config
 from rsmesh_bbs.db_operations import (
     initialize_database,
     ensure_superuser_sysadmin,
@@ -70,6 +71,7 @@ def main():
 
     initialize_database()
     ensure_sys_config_from_yaml(config_file)
+    ensure_core_services_config(config_file)
     import_tc2_sync_peers_from_ini()
 
     interface = get_interface(system_config)

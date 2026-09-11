@@ -21,9 +21,16 @@ class TestMeshClientMenus:
         joined = "\n".join(replies)
         assert "Test BBS" in joined
         assert "[B]ulletins" in joined
-        assert "[R]ead Mail" in joined
+        assert "[M]ail" in joined
+        assert "M[o]dules" in joined
+
+    def test_mail_submenu(self, mesh_client):
+        replies = mesh_client.send_joined("m")
+        assert "[R]ead Mail" in replies
+        assert "[S]end Mail" in replies
 
     def test_read_mail_empty_inbox(self, mesh_client):
+        mesh_client.send("m")
         replies = mesh_client.send("r")
         assert any("No messages." in reply for reply in replies)
 
@@ -42,6 +49,7 @@ class TestMeshClientMenus:
             recipient_short_name="COFY",
         )
 
+        mesh_client.send("m")
         replies = mesh_client.send_joined("r")
         assert "Hello" in replies
         assert "SNDR" in replies
@@ -51,7 +59,7 @@ class TestMeshClientMenus:
         assert "[G]eneral" in replies
 
     def test_modules_menu_lists_enabled_modules(self, mesh_client):
-        replies = mesh_client.send_joined("m")
+        replies = mesh_client.send_joined("o")
         assert "Modules are not available." not in replies
         assert "[F]ortune" in replies or "[I]" in replies
 

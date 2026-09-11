@@ -13,13 +13,8 @@ from .utils import (
     get_node_short_name, send_message, send_user_message, send_user_messages,
     update_user_state, bundle_bulletin_read_list,
 )
+from .mesh_ui import MAIL_SUBMENU_TEXT, load_main_menu_body
 from .node_resolution import is_hex_node_id
-
-# Main menu layout:
-# [B]ulletins [C]hannels
-# [R]ead Mail [S]end Mail
-# [M]odules  E[X]IT
-MAIN_MENU_ITEMS = ('B', 'C', 'R', 'S', 'M', 'X')
 
 EXIT_PROMPT = "E[X]IT"
 
@@ -107,45 +102,11 @@ def with_exit_prompt(menu_text, include_exit=True):
     return menu_text + EXIT_PROMPT
 
 
-MENU_LABELS = {
-    'B': '[B]ulletins',
-    'R': '[R]ead Mail',
-    'S': '[S]end Mail',
-    'C': '[C]hannels',
-    'M': '[M]odules',
-    'X': 'E[X]IT',
-}
-
-MENU_ROWS = [
-    ('B', 'C'),
-    ('R', 'S'),
-    ('M', 'X'),
-]
-
-MENU_LEFT_WIDTH = max(len(MENU_LABELS[left]) for left, _ in MENU_ROWS)
-
-
-def build_menu(menu_name):
-    menu_str = f"{menu_name}\n"
-    enabled = set(MAIN_MENU_ITEMS)
-
-    for left_key, right_key in MENU_ROWS:
-        left_label = MENU_LABELS[left_key] if left_key in enabled else None
-        right_label = MENU_LABELS[right_key] if right_key in enabled else None
-
-        if left_label and right_label:
-            menu_str += f"{left_label:<{MENU_LEFT_WIDTH}} {right_label}\n"
-        elif left_label:
-            menu_str += f"{left_label}\n"
-        elif right_label:
-            menu_str += f"{right_label}\n"
-
-    return menu_str
-
 def handle_help_command(sender_id, interface, prefix_messages=None):
     update_user_state(sender_id, {'command': 'MAIN_MENU', 'step': 1})
     mail = get_mail(get_node_id_from_num(sender_id, interface), interface)
-    response = build_menu(f"= {get_board_name()} : {len(mail)} Msg(s) =")
+    title = f"= {get_board_name()} : {len(mail)} Msg(s) ="
+    response = f"{title}\n{load_main_menu_body()}"
     messages = list(prefix_messages or []) + [response]
     send_user_messages(messages, sender_id, interface)
 
@@ -220,6 +181,31 @@ def handle_read_mail_command(sender_id, interface):
 def handle_send_mail_command(sender_id, interface):
     send_user_message("Short Name of the node to message?", sender_id, interface)
     update_user_state(sender_id, {'command': 'MAIL', 'step': 3})
+
+
+def handle_mail_menu_command(sender_id, interface, prefix_messages=None):
+    response = with_exit_prompt(MAIL_SUBMENU_TEXT)
+    messages = list(prefix_messages or []) + [response]
+    send_user_messages(messages, sender_id, interface)
+    update_user_state(sender_id, {'command': 'MAIL_MENU', 'step': 1})
+
+
+def handle_mail_menu_steps(sender_id, message, step, interface):
+    message = message.lower().strip()
+    if len(message) == 2 and message[1] == 'x':
+        message = message[0]
+    if message == 'x':
+        handle_help_command(sender_id, interface)
+        return
+    if step != 1:
+        handle_help_command(sender_id, interface)
+        return
+    if message == 'r':
+        handle_read_mail_command(sender_id, interface)
+    elif message == 's':
+        handle_send_mail_command(sender_id, interface)
+    else:
+        handle_mail_menu_command(sender_id, interface, prefix_messages=["Invalid option."])
 
 
 def handle_bulletin_command(sender_id, interface):
@@ -546,6 +532,39 @@ def handle_mail_steps(sender_id, message, step, state, interface, bbs_nodes):
 
 def _channel_directory_menu():
     return with_exit_prompt("= Channel Directory =\nSelect option:\n[V]iew  [P]ost")
+
+
+def dispatch_main_menu_key(sender_id, interface, menu_key):
+    """Route a main-menu key to core service handlers or a module override."""
+    from .core_services import MAIN_MENU_HANDLER_KEYS, is_core_service_enabled
+
+    menu_key = (menu_key or "").lower()
+    core_handlers = {
+        "b": handle_bulletin_command,
+        "c": handle_channel_directory_command,
+        "m": handle_mail_menu_command,
+        "o": handle_modules_command,
+        "x": handle_help_command,
+    }
+    handler = core_handlers.get(menu_key)
+    if handler is None:
+        handle_help_command(sender_id, interface)
+        return
+
+    cfg_key = MAIN_MENU_HANDLER_KEYS.get(menu_key)
+    if cfg_key is None or is_core_service_enabled(cfg_key):
+        handler(sender_id, interface)
+        return
+
+    manager = getattr(interface, "module_manager", None)
+    if manager:
+        entry = manager.get_by_menu_option(menu_key)
+        if entry:
+            row, _instance = entry
+            if manager.on_module_enter(row[0], sender_id, interface):
+                return
+
+    handle_help_command(sender_id, interface)
 
 
 def handle_channel_directory_command(sender_id, interface, prefix_messages=None):

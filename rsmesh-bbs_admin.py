@@ -64,6 +64,16 @@ from rsmesh_bbs.db_operations import (
 )
 from rsmesh_bbs.module_loader import load_module_admin, module_admin_available
 from rsmesh_bbs.backup import create_application_backup
+from rsmesh_bbs.core_services import (
+    CORE_SERVICE_KEYS,
+    CORE_SERVICE_LABELS,
+    ensure_core_services_config,
+    is_core_bulletins_enabled,
+    is_core_channels_enabled,
+    is_core_mail_enabled,
+    is_core_service_enabled,
+    toggle_core_service,
+)
 from rsmesh_bbs import admin_ui
 
 # Shared terminal layout and display helpers (core + module admin extensions)
@@ -1924,6 +1934,31 @@ def sys_config_menu(back_label="Main Menu"):
     return False
 
 
+def core_services_menu(back_label="Administration"):
+    while True:
+        body_lines = []
+        for index, cfg_key in enumerate(CORE_SERVICE_KEYS, 1):
+            label = CORE_SERVICE_LABELS[cfg_key]
+            state = "Enabled" if is_core_service_enabled(cfg_key) else "Disabled"
+            body_lines.append(f"{index}. {label} ({state})")
+        body_lines.append("")
+        body_lines.append(f"0. Back to {back_label}")
+        choice = render_menu_screen("Core Services", body_lines)
+        clear_screen()
+        if choice == "0":
+            return
+        try:
+            option_index = int(choice) - 1
+            if 0 <= option_index < len(CORE_SERVICE_KEYS):
+                toggle_core_service(CORE_SERVICE_KEYS[option_index])
+            else:
+                _finish_action_message("Invalid option. Try again.", "Core Services")
+                prompt_continue()
+        except ValueError:
+            _finish_action_message("Invalid option. Try again.", "Core Services")
+            prompt_continue()
+
+
 def sysadmin_nodes_menu(back_label="Main Menu"):
     run_submenu("Sysadmin Nodes", [
         ("List Sysadmin Nodes", list_sysadmin_nodes),
@@ -1937,6 +1972,7 @@ def sysadmin_nodes_menu(back_label="Main Menu"):
 def administration_menu():
     run_submenu("Administration", [
         ("System Configuration", lambda: sys_config_menu("Administration")),
+        ("Core Services", lambda: core_services_menu("Administration")),
         ("Sysadmin Nodes", lambda: sysadmin_nodes_menu("Administration")),
         ("Sync Peers", lambda: sync_peers_menu("Administration")),
         ("Modules", lambda: modules_admin_menu("Administration")),
@@ -2050,20 +2086,55 @@ def node_catalog_menu(back_label="Main Menu"):
     return False
 
 
-def display_main_menu():
-    return render_menu_screen("Main Menu", [
+def _main_menu_body_lines():
+    lines = [
         "1. System Status",
         "2. Administration",
-        "3. Bulletins",
-        "4. Channels",
-        "5. Mail",
-        "",
-        "6. Node Catalog",
-        "",
-        "7. Mesh Nodes",
-        "",
-        "0. Exit",
-    ])
+    ]
+    option_number = 3
+    if is_core_bulletins_enabled():
+        lines.append(f"{option_number}. Bulletins")
+        option_number += 1
+    if is_core_channels_enabled():
+        lines.append(f"{option_number}. Channels")
+        option_number += 1
+    if is_core_mail_enabled():
+        lines.append(f"{option_number}. Mail")
+        option_number += 1
+    lines.append("")
+    lines.append(f"{option_number}. Node Catalog")
+    option_number += 1
+    lines.append("")
+    lines.append(f"{option_number}. Mesh Nodes")
+    lines.append("")
+    lines.append("0. Exit")
+    return lines
+
+
+def _main_menu_actions():
+    actions = {
+        "1": show_system_status,
+        "2": administration_menu,
+        "0": None,
+    }
+    option_number = 3
+    if is_core_bulletins_enabled():
+        actions[str(option_number)] = bulletins_menu
+        option_number += 1
+    if is_core_channels_enabled():
+        actions[str(option_number)] = channels_menu
+        option_number += 1
+    if is_core_mail_enabled():
+        actions[str(option_number)] = mail_menu
+        option_number += 1
+    actions[str(option_number)] = node_catalog_menu
+    option_number += 1
+    actions[str(option_number)] = mesh_nodes_menu
+    return actions
+
+
+def display_main_menu():
+    return render_menu_screen("Main Menu", _main_menu_body_lines())
 
 def input_select_row(prompt):
     console.print()
@@ -2099,30 +2170,20 @@ def main():
     clear_screen()
     initialize_database(quiet=True)
     ensure_sys_config_from_yaml()
+    ensure_core_services_config()
     backfill_sync_peer_last_heard()
     show_splash_screen()
     while True:
         choice = display_main_menu()
         clear_screen()
-        if choice == '1':
-            show_system_status()
-        elif choice == '2':
-            administration_menu()
-        elif choice == '3':
-            bulletins_menu()
-        elif choice == '4':
-            channels_menu()
-        elif choice == '5':
-            mail_menu()
-        elif choice == '6':
-            node_catalog_menu()
-        elif choice == '7':
-            mesh_nodes_menu()
-        elif choice == '0':
+        if choice == '0':
             break
-        else:
+        action = _main_menu_actions().get(choice)
+        if action is None:
             _finish_action_message("Invalid option. Try again.", "Main Menu")
             prompt_continue()
+            continue
+        action()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=f"{APP_NAME} admin")

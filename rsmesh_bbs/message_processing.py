@@ -1,11 +1,11 @@
 import logging
 
 from .command_handlers import (
-    handle_read_mail_command, handle_send_mail_command, handle_bulletin_command, handle_help_command,
-    handle_modules_command, handle_modules_steps,
+    dispatch_main_menu_key, handle_help_command,
+    handle_mail_menu_steps, handle_modules_steps,
     handle_bb_steps, handle_mail_steps,
     handle_bulletin_delete_steps,
-    handle_channel_directory_command, handle_channel_directory_steps,
+    handle_channel_directory_steps,
 )
 from .db_operations import (
     add_bulletin, add_mail, delete_bulletin_by_sync_identifier, delete_mail, delete_mail_from_sync,
@@ -27,14 +27,7 @@ from .utils import (
 )
 from .node_resolution import is_hex_node_id, record_mesh_node_from_interface, record_mesh_node_from_packet
 
-main_menu_handlers = {
-    "r": handle_read_mail_command,
-    "s": handle_send_mail_command,
-    "b": handle_bulletin_command,
-    "c": handle_channel_directory_command,
-    "m": handle_modules_command,
-    "x": handle_help_command
-}
+MAIN_MENU_KEYS = frozenset({"b", "c", "m", "o", "x"})
 
 bulletin_menu_handlers = {
     "g": lambda sender_id, interface: handle_bb_steps(sender_id, '0', 1, {'board': 'General'}, interface, None),
@@ -315,6 +308,9 @@ def _handle_user_message(sender_id, message, interface):
         if command == 'MAIL':
             handle_mail_steps(sender_id, message, step, state, interface, bbs_nodes)
             return
+        elif command == 'MAIL_MENU':
+            handle_mail_menu_steps(sender_id, message, step, interface)
+            return
         elif command == 'MODULES':
             handle_modules_steps(sender_id, message, step, interface)
             return
@@ -344,12 +340,18 @@ def _handle_user_message(sender_id, message, interface):
             handle_bulletin_delete_steps(sender_id, message, step, state, interface, bbs_nodes)
             return
 
+    on_main_menu = not state or state.get('command') == 'MAIN_MENU'
+    if on_main_menu:
+        if message_lower in MAIN_MENU_KEYS:
+            dispatch_main_menu_key(sender_id, interface, message_lower)
+        else:
+            handle_help_command(sender_id, interface)
+        return
+
     if state and state['command'] == 'BULLETIN_MENU':
         handlers = bulletin_menu_handlers
     elif state and state['command'] == 'BULLETIN_ACTION':
         handlers = board_action_handlers
-    elif not state or state.get('command') == 'MAIN_MENU':
-        handlers = main_menu_handlers
     else:
         handlers = {}
 

@@ -1,0 +1,39 @@
+RSMesh BBS Changelog
+====================
+
+Release 1.1 (in development)
+------------------------------
+
+Mesh user interface
+  - Main menu layout: [B]ulletins / [C]hannels, [M]ail / M[O]dules, E[X]IT
+  - Read Mail and Send Mail moved under [M]ail submenu ([R] / [S])
+  - Modules aggregator key changed from M to O (M[o]dules)
+  - Main menu option rows cached in mesh_ui/main_menu.txt (title line built at display time)
+  - Disabled core service keys remain on the menu for optional module overrides
+
+Core Services (admin)
+  - Administration -> Core Services toggles for Bulletins, Mail, and Channels
+  - Settings stored in sys_config (bbs.core_bulletins, bbs.core_mail, bbs.core_channels)
+  - Seeded from config.yml; missing keys added on upgrade (default enabled)
+  - Admin main menu hides Bulletins / Channels / Mail entries when the service is off
+
+Sync (rsv1)
+  - Bulletin ingest upserts by unique_id (tc2 remains insert-only)
+  - Pinned bulletins sync via rsv1 pin field
+  - Protocol differences documented (README, docs/rsv1-sync-examples.md)
+
+Documentation
+  - Admin guide moved to docs/README-ADMIN.md
+  - Module development guide moved to docs/README-MODULES.md
+  - Planned enhancements tracked in docs/TODO.txt
+
+Release 1.0
+-----------
+
+Initial RSMesh BBS release (fork/evolution of TC2-BBS concepts)
+  - Mesh mail, bulletins (General/Info/News/Urgent), and channel directory
+  - tc2 and rsv1 peer sync, sync peer admin, reconcile workflows
+  - Module framework (Node Info, Fortune, Example Hello)
+  - Mesh client (rsmesh-bbs_client.py) for handset testing without radio
+  - Admin tool with bulletins, mail, channels, mesh nodes, node catalog, backup
+  - TC2 database/config migration path

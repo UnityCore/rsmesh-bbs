@@ -11,6 +11,15 @@ def _close_db_connection():
         del db_operations.thread_local.connection
 
 
+@pytest.fixture(autouse=True)
+def mesh_ui_dir(monkeypatch, tmp_path):
+    """Keep generated mesh UI files out of the project tree during tests."""
+    ui_dir = tmp_path / "mesh_ui"
+    monkeypatch.setattr("rsmesh_bbs.mesh_ui.MESH_UI_DIR", ui_dir)
+    monkeypatch.setattr("rsmesh_bbs.mesh_ui.MAIN_MENU_FILE", ui_dir / "main_menu.txt")
+    monkeypatch.setattr("rsmesh_bbs.mesh_ui.MAIN_MENU_OLD_FILE", ui_dir / "main_menu.old")
+
+
 @pytest.fixture
 def temp_db(monkeypatch, tmp_path):
     """Point db_operations at a fresh SQLite file under pytest's tmp_path."""
