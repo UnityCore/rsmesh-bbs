@@ -729,4 +729,4 @@ Splash Screen
     └── 0. Exit
 ```
 
-Mesh main menu (separate from the admin tool): `[B]ulletins` / `[C]hannels`, `[M]ail` / M[o]dules (`O`), `E[X]IT`. Mail opens a submenu with `[R]ead Mail` and `[S]end Mail`. See the main [README](../README.md#using-the-bbs-from-the-mesh).
+Mesh main menu (separate from the admin tool): `[B]ulletins` / `[C]hannels`, `[M]ail` / M[o]dules (`O`), `E[X]IT`. Mail opens a submenu with `[R]ead Mail` and `[S]end Mail`. See the [User Guide](RSMESH-BBS-USER-GUIDE.md).

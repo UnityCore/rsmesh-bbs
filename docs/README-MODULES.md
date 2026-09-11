@@ -178,4 +178,4 @@ See `modules/node_info/node_info_admin.py` and `modules/example_hello/example_he
 1. Create the directory and `module.py`.
 2. Enable the module in SysAdmin.
 3. Restart the BBS server (modules load at startup).
-4. From a mesh handset: main menu → **M[o]dules** (`O`) → your menu option.
+4. From a mesh handset: main menu → **M[o]dules** (`O`) → your menu option. See [User Guide](RSMESH-BBS-USER-GUIDE.md).

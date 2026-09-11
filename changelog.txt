@@ -31,6 +31,7 @@ Sync (rsv1)
 Documentation
   - Admin guide moved to docs/README-ADMIN.md
   - Module development guide moved to docs/README-MODULES.md
+  - Mesh user guide moved to docs/RSMESH-BBS-USER-GUIDE.md
   - Planned enhancements tracked in docs/TODO.txt
 
 Release 1.0
