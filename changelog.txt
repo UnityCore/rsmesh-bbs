@@ -10,6 +10,10 @@ Mesh user interface
   - Modules aggregator key changed from M to O (M[o]dules)
   - Main menu option rows cached in mesh_ui/main_menu.txt (title line built at display time)
   - Disabled core service keys remain on the menu for optional module overrides
+  - Empty mail inbox returns to the mail submenu instead of the main menu
+
+Mesh client (rsmesh-bbs_client.py)
+  - --verbose / -v: print (no reply) when the BBS sends no response (default silent)
 
 Core Services (admin)
   - Administration -> Core Services toggles for Bulletins, Mail, and Channels

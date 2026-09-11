@@ -23,6 +23,8 @@
 # - Mesh Post and sync ingest create unpublished channels (publish=N).
 # - Operator sets Publish=Y in the admin tool to list on mesh and sync out.
 # - PSKs are public directory data (shared channel keys), not secrets.
+# core_bulletins / core_mail / core_channels - enable built-in mesh features (default true).
+#   Seeded into sys_config on first run; toggle live under Administration -> Core Services.
 
 bbs:
   board_name: RSMesh BBS

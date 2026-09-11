@@ -15,7 +15,7 @@ modules/
     storage.py         # Optional: data/helpers
 ```
 
-Enable modules in the SysAdmin **Modules** menu. Enabled modules appear on the mesh **Modules** menu using their configured menu option letter.
+Enable modules in the SysAdmin **Modules** menu. Mesh users open the module list from the main menu with **M[o]dules** (`O`). Each enabled module appears there using its configured menu option letter. When a core service is disabled, its main-menu key (`B`, `C`, or `M`) can be claimed by a module instead.
 
 ## Module class
 
@@ -178,4 +178,4 @@ See `modules/node_info/node_info_admin.py` and `modules/example_hello/example_he
 1. Create the directory and `module.py`.
 2. Enable the module in SysAdmin.
 3. Restart the BBS server (modules load at startup).
-4. From a mesh handset: main menu → **Modules** → your menu option.
+4. From a mesh handset: main menu → **M[o]dules** (`O`) → your menu option.

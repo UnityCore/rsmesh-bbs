@@ -101,12 +101,12 @@ Shown once at startup before the main menu.
 |--------|------|
 | `1` | System Status |
 | `2` | Administration |
-| `3` | Bulletins |
-| `4` | Channels |
-| `5` | Mail |
-| `6` | Node Catalog |
-| `7` | Mesh Nodes |
+| `3`–`5` | Bulletins, Channels, Mail (only when the matching core service is enabled; see [Core Services](#core-services)) |
+| next | Node Catalog |
+| next | Mesh Nodes |
 | `0` | Exit |
+
+Option numbers after **Administration** are assigned in order: enabled core services first (Bulletins, then Channels, then Mail), then Node Catalog, then Mesh Nodes. For example, with all three core services on, Node Catalog is `6` and Mesh Nodes is `7`; with Mail disabled, Node Catalog is `5` and Mesh Nodes is `6`.
 
 ---
 
@@ -123,13 +123,38 @@ Paginated view-only. Use `N` / `P` to move between pages, Enter or `X` to return
 | Option | Submenu |
 |--------|---------|
 | `1` | System Configuration |
-| `2` | Sysadmin Nodes |
-| `3` | Sync Peers |
-| `4` | Modules |
-| `5` | Backup |
+| `2` | Core Services |
+| `3` | Sysadmin Nodes |
+| `4` | Sync Peers |
+| `5` | Modules |
+| `6` | Backup |
 | `0` | Back to Main Menu |
 
-Changes to sync peers and sysadmin nodes are picked up by a running BBS server on the next mesh message or background worker cycle.
+Changes to sync peers and sysadmin nodes are picked up by a running BBS server on the next mesh message or background worker cycle. Core Services toggles take effect immediately for mesh menus, admin menus, and background sync/purge workers.
+
+### Core Services
+
+Enable or disable the built-in Bulletins, Mail, and Channels features without uninstalling modules or editing raw `sys_config` rows.
+
+| Option | Service |
+|--------|---------|
+| `1` | Bulletins |
+| `2` | Mail |
+| `3` | Channels |
+| `0` | Back to Administration |
+
+Each row shows **Enabled** or **Disabled**. Select a row to toggle it. Settings are stored in `sys_config` as `bbs.core_bulletins`, `bbs.core_mail`, and `bbs.core_channels` (seeded from `config.yml` on upgrade; default enabled).
+
+When a service is disabled:
+
+- Its entry disappears from the admin **Main Menu** (Bulletins, Channels, or Mail).
+- Inbound peer sync for that record type is skipped.
+- Background peer sync, outbound sync, and purge workers omit that type.
+- **List Unsynced Data** omits records for that type.
+
+On the mesh main menu, `[M]ail` is hidden when core mail is off. `[B]ulletins` and `[C]hannels` stay on the menu so an enabled module can register the same menu letter for its own feature.
+
+Toggling a service regenerates `mesh_ui/main_menu.txt` (cached mesh menu body).
 
 ### System Configuration
 
@@ -691,16 +716,17 @@ Splash Screen
     ├── 1. System Status
     ├── 2. Administration
     │   ├── 1. System Configuration
-    │   ├── 2. Sysadmin Nodes
-    │   ├── 3. Sync Peers
-    │   ├── 4. Modules
+    │   ├── 2. Core Services
+    │   ├── 3. Sysadmin Nodes
+    │   ├── 4. Sync Peers
+    │   ├── 5. Modules
     │   │   ├── [Node Info] → List Node Info
     │   │   └── [Example Hello] → List Visits (if enabled)
-    │   └── 5. Backup
-    ├── 3. Bulletins
-    ├── 4. Channels
-    ├── 5. Mail
-    ├── 6. Node Catalog
-    ├── 7. Mesh Nodes
+    │   └── 6. Backup
+    ├── 3–5. Bulletins / Channels / Mail (when core service enabled)
+    ├── Node Catalog
+    ├── Mesh Nodes
     └── 0. Exit
 ```
+
+Mesh main menu (separate from the admin tool): `[B]ulletins` / `[C]hannels`, `[M]ail` / M[o]dules (`O`), `E[X]IT`. Mail opens a submenu with `[R]ead Mail` and `[S]end Mail`. See the main [README](../README.md#using-the-bbs-from-the-mesh).

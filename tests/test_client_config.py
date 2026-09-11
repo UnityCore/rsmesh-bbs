@@ -110,6 +110,34 @@ class TestRequireClientSetup:
         assert str(client_path) in err
 
 
+class TestClientPrintReplies:
+    @staticmethod
+    def _load_client_module(monkeypatch):
+        import importlib.util
+        from pathlib import Path
+
+        script_path = Path(__file__).resolve().parents[1] / "rsmesh-bbs_client.py"
+        spec = importlib.util.spec_from_file_location("rsmesh_bbs_client", script_path)
+        client_module = importlib.util.module_from_spec(spec)
+        monkeypatch.setattr(
+            "rsmesh_bbs.venv_guard.require_venv",
+            lambda: None,
+            raising=False,
+        )
+        spec.loader.exec_module(client_module)
+        return client_module
+
+    def test_empty_replies_silent_by_default(self, capsys, monkeypatch):
+        client_module = self._load_client_module(monkeypatch)
+        client_module._print_replies([])
+        assert capsys.readouterr().out == ""
+
+    def test_empty_replies_verbose_shows_placeholder(self, capsys, monkeypatch):
+        client_module = self._load_client_module(monkeypatch)
+        client_module._print_replies([], verbose=True)
+        assert capsys.readouterr().out == "(no reply)\n"
+
+
 class TestClientMainExit:
     def test_main_returns_error_when_setup_incomplete(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)

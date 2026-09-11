@@ -71,13 +71,19 @@ def _parse_args(remaining, config_file, client_config_file):
         action="store_true",
         help="Skip mesh reply pacing delays (recommended for interactive use)",
     )
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Show (no reply) when the BBS sends no response (debugging)",
+    )
     args = parser.parse_args(remaining)
     return args, config_file
 
 
-def _print_replies(replies):
+def _print_replies(replies, verbose=False):
     if not replies:
-        print("(no reply)")
+        if verbose:
+            print("(no reply)")
         return
     for reply in replies:
         print(reply)
@@ -126,7 +132,7 @@ def main() -> int:
             if not line:
                 line = "x"
             replies = client.send(line)
-            _print_replies(replies)
+            _print_replies(replies, verbose=args.verbose)
     except KeyboardInterrupt:
         print("\nBye.")
 

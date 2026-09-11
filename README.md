@@ -86,6 +86,9 @@ python rsmesh-bbs_client.py --fast
 | `--node-num` | Simulated client node number (default: derived from node ID) |
 | `--short-name` | Simulated client short name (default: from `config_client.yml`) |
 | `--long-name` | Simulated client long name (default: from `config_client.yml`) |
+| `--verbose` / `-v` | Print `(no reply)` when the BBS sends no response (debugging) |
+
+During multiline mail compose, the BBS often sends no per-line reply until you type `END`. By default the client stays silent for those empty turns; use `--verbose` if you want to see `(no reply)` for each blank response.
 
 Example `config_client.yml`:
 
@@ -98,7 +101,7 @@ client:
 
 Command-line flags override values from `config_client.yml` when you need a one-off identity. The board banner still comes from `config.yml` in the project directory (see [Configuration reference](#configuration-reference)).
 
-Type messages as you would from a handset (single-letter menu commands such as `B`, `R`, `S`). Press Enter or type `X` for the main menu. Ctrl+C or Ctrl+D to quit.
+Type messages as you would from a handset (single-letter menu commands such as `B`, `M`, `R`). Press Enter or type `X` for the main menu. Ctrl+C or Ctrl+D to quit.
 
 The pytest `mesh_client` fixture in `tests/conftest.py` uses the same harness against a temporary database. See `tests/test_mesh_client.py` for examples.
 
@@ -110,18 +113,32 @@ Send commands as **direct messages to the BBS node**. The server ignores group-c
 
 ```
 [B]ulletins  [C]hannels
-[R]ead Mail  [S]end Mail
-[M]odules    E[X]IT
+[M]ail       M[o]dules
+E[X]IT
 ```
 
 | Key | Action |
 |-----|--------|
 | `B` | Bulletin boards |
 | `C` | Channel directory (view published channels or post a new entry) |
+| `M` | Mail submenu (when core mail is enabled) |
+| `O` | Enabled modules (Fortune, Node Info, etc.) |
+| `X` | Main menu (also `E[X]IT` prompts in submenus) |
+
+**Mail submenu** (`M`):
+
+```
+= Mail =
+[R]ead Mail  [S]end Mail
+```
+
+| Key | Action |
+|-----|--------|
 | `R` | Read mail |
 | `S` | Send mail |
-| `M` | Enabled modules (Fortune, Node Info, etc.) |
-| `X` | Main menu (also `E[X]IT` prompts in submenus) |
+| `X` | Back to main menu |
+
+When core mail is disabled in the admin tool, `[M]ail` is hidden from the main menu. `[B]ulletins` and `[C]hannels` stay visible so an enabled module can register the same menu letter for its own feature.
 
 Many submenus accept a two-letter exit shortcut (for example `Rx` runs **R** then returns to the main menu via **X**).
 
@@ -139,9 +156,11 @@ See [Pinned bulletins](#pinned-bulletins) and [Urgent board alerts](#urgent-boar
 
 ### Mail
 
-**Read mail** — select a message number, then `[K]eep`, `[D]elete`, or `[R]eply`. Reply uses the same multiline `END` flow as posting.
+Open mail from the main menu with **`M`**, then **`R`** (read) or **`S`** (send).
 
-**Send mail** — enter the recipient **short name** (or pick from a list when several nodes match). Subject, then body with `END` to finish. Recipient lookup uses nodes seen on the radio, the [mesh node directory](#node-directory), the [node catalog](#node-catalog-operator-reference), and the Node Info module when enabled.
+**Read mail** — select a message number, then `[K]eep`, `[D]elete`, or `[R]eply`. Reply uses the same multiline `END` flow as posting. An empty inbox returns to the mail submenu.
+
+**Send mail** — enter the recipient **short name** (or pick from a list when several nodes match). Subject, then body with `END` to finish. While you type the body, the BBS may send no reply until `END` (the mesh client hides those empty turns unless you pass `--verbose`). Recipient lookup uses nodes seen on the radio, the [mesh node directory](#node-directory), the [node catalog](#node-catalog-operator-reference), and the Node Info module when enabled.
 
 ### Channel directory
 
@@ -161,6 +180,7 @@ rsmesh-bbs/
   rsmesh-bbs_admin.py     # Admin tool entry point
   rsmesh-bbs_client.py    # In-process mesh handset simulator (no radio)
   rsmesh_bbs/             # Core library code
+  mesh_ui/                # Cached mesh main menu body (main_menu.txt)
   modules/                # Optional mesh modules
   tests/                  # Automated tests (pytest)
   .venv/                  # Virtual environment (created locally; not in git)
@@ -343,6 +363,7 @@ Common causes after enabling the venv-based service:
 | Board name, superuser, event bus topic | `config.yml` `bbs` | Banner text, Urgent board permission, and PyPubSub topic for incoming radio packets (`eventbus_topic`, default `meshtastic.receive`) |
 | Urgent mesh alerts (local) | `config.yml` `bbs` `send_urgent_alert_local` | `true`/`false` — broadcast on primary channel when an Urgent bulletin is posted on this node (default `false`) |
 | Urgent mesh alerts (sync) | `config.yml` `bbs` `send_urgent_alert_from_sync` | `true`/`false` — broadcast when an Urgent bulletin is ingested from a sync peer (default `false`) |
+| Core services (defaults) | `config.yml` `bbs` `core_bulletins`, `core_mail`, `core_channels` | `true`/`false` — seeded into `sys_config` on first run; toggled live under **Administration → Core Services** in the admin tool |
 | Radio interface | `config.yml` `interface` | `serial` or `tcp`; set `port` or `hostname` as needed |
 | Peer sync interval | `config.yml` `schedule` | Minutes between retries for unsynced records |
 | Module schedule tick | `config.yml` `schedule` | Minutes between module schedule worker runs (`module_exec_minutes`) |
@@ -434,7 +455,7 @@ Any of these can supply a hex node ID for delivery. The catalog is one helper am
 
 **Mesh nodes** is part of the core database and is always available. The server maintains it automatically from live mesh traffic (any packet the radio hears) and, when configured, from **rsv1** peer **Sync mesh nodes** ingest. Each row stores only what the BBS needs for day-to-day operation: hex node ID, short name, long name, and last heard. That minimal record supports mail recipient lookup, short-name resolution when the radio’s live node list is incomplete, and mesh-node sync between peers — **even when the Node Info module is disabled**.
 
-**Node Info** is an **optional module** (enabled by default, but you can turn it off under **Administration → Modules**). It keeps a separate, richer telemetry database: SNR, RSSI, hop count, GPS coordinates, channel-quality estimates, and related fields gathered from overheard packets. Mesh users reach it from **[M]odules** for node counts and statistics; sysadmins can list detailed rows. Think of Node Info as an **enhanced telemetry reference**, not a requirement for core BBS features.
+**Node Info** is an **optional module** (enabled by default, but you can turn it off under **Administration → Modules**). It keeps a separate, richer telemetry database: SNR, RSSI, hop count, GPS coordinates, channel-quality estimates, and related fields gathered from overheard packets. Mesh users reach it from **M[o]dules** (`O` on the main menu) for node counts and statistics; sysadmins can list detailed rows. Think of Node Info as an **enhanced telemetry reference**, not a requirement for core BBS features.
 
 If Node Info is off, mail, sync, and short-name resolution still work through the attached radio’s live node list, the **mesh nodes** table, and the optional **node catalog**.
 
@@ -490,9 +511,11 @@ Background workers in the running server (intervals from `config.yml` `schedule`
 
 | Worker | Setting | Behavior |
 |--------|---------|----------|
-| Peer sync | `peer_sync_minutes` | Retries unsynced bulletins, mail, and published channels to eligible sync peers |
-| Purge | `sync_purge_minutes` | Reloads peer/sysadmin config; purges soft-deleted bulletins/channels and pushes delete sync |
+| Peer sync | `peer_sync_minutes` | Retries unsynced bulletins, mail, and published channels to eligible sync peers (skips types disabled under **Core Services**) |
+| Purge | `sync_purge_minutes` | Reloads peer/sysadmin config; purges soft-deleted bulletins/channels and pushes delete sync (skips types disabled under **Core Services**) |
 | Module schedule | `module_exec_minutes` | Runs enabled module scheduled tasks (Node Info scan/purge, etc.) |
+
+**Core Services** — Under **Administration → Core Services**, operators can enable or disable the built-in Bulletins, Mail, and Channels features. Settings live in `sys_config` (`bbs.core_bulletins`, `bbs.core_mail`, `bbs.core_channels`) and are seeded from `config.yml` on upgrade (default enabled). When a service is off, the admin tool hides its top-level menu, inbound peer sync for that record type is skipped, and background sync/purge workers omit that type. On the mesh, `[M]ail` is hidden when core mail is off; `[B]ulletins` and `[C]hannels` remain available for optional module overrides on those keys.
 
 **Soft delete** — Admin **Delete Bulletins** / **Delete Channels** (and mesh sysadmin bulletin delete) set `deleted='Y'`. The purge worker removes them locally and syncs deletes to peers. **List Unsynced Data** in the admin tool shows records still pending peer sync.
 
@@ -520,7 +543,7 @@ Mesh modules extend the BBS without modifying core code. See [docs/README-MODULE
 | `<name>_admin.py` | Optional admin submenu (`run_admin_menu(run_submenu, back_label)`) |
 | `config.yml` | Module-specific settings |
 
-Modules are registered in the `modules` table (seeded at startup). Users reach enabled modules from the mesh main menu via **[M]odules**. Admins manage modules under **Administration → Modules** (list, enable/disable flags, and per-module admin screens when `<name>_admin.py` exists).
+Modules are registered in the `modules` table (seeded at startup). Users reach enabled modules from the mesh main menu via **M[o]dules** (`O`). Admins manage modules under **Administration → Modules** (list, enable/disable flags, and per-module admin screens when `<name>_admin.py` exists).
 
 Module admin code should use `rsmesh_bbs.admin_ui` for consistent headers, pagination (`paginate_display`), and record detail views (`display_record_detail`, `list_with_record_view`).
 
@@ -540,7 +563,7 @@ Not shown in the example (see `node_info` for these): `register_service` for oth
 
 ### Shipped modules (mesh menus)
 
-Enable under **Administration → Modules**. Users open them from **[M]odules** on the main menu.
+Enable under **Administration → Modules**. Users open them from **M[o]dules** (`O`) on the main menu.
 
 | Module | Menu option | Mesh actions |
 |--------|-------------|--------------|
