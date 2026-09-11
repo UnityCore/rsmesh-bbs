@@ -1,15 +1,34 @@
 TODO for Release 1.1
 ====================
 
+- Core Services (operator toggles for Bulletins, Mail, Channels)
+    - Admin: Administration -> Core Services (after System Configuration)
+      - Toggle each core service on/off (default on for upgrades)
+      - Store in sys_config (bbs scope) or dedicated table; seed from config.yml on first run
+    - When a core service is OFF:
+      - Mesh: hide related main-menu key(s); reject or no-op mesh user commands for that service
+      - Sync outbound: sync_pending_records / sync_*_record skip that record type
+      - Sync inbound: ignore BULLETIN| / MAIL| / CHANNEL| and rsv1 equivalents for disabled
+        types (same pattern as peer ingest_bulletins / ingest_channels flags today)
+      - Schedule: purge workers and other background jobs skip disabled types (e.g. no
+        bulletin purge when bulletins off)
+      - Admin tool: hide or disable menus for disabled services (Bulletins, Mail, Channels)
+    - Peer sync peer flags (sync_bulletins, sync_mail, etc.) remain per-peer; core service
+      off is a local master switch that overrides outbound/inbound regardless of peer config
+
 - Dynamic Main Menu
     - Build on existing build_menu() in command_handlers.py (two-column layout today)
-    - Track valid menu options at runtime (enabled modules, mail count in title, etc.)
-    - Generate a generic two-column menu ASCII by default when no operator override
-    - Operator custom menu file (optional, e.g. config path or sys_config)
-      - Display-only override preferred: cosmetic text; keys/behavior stay in code/DB
-      - Enforce mesh packet limit (200 bytes per message); fallback to generated menu
-        if missing, invalid, or oversized
-      - May use multiple packets (send_user_messages) if needed for longer branding
+    - Driven by Core Services toggles + enabled modules + suppress/hide Modules rules
+    - Cached main menu file (e.g. menu/main_menu.txt or path in sys_config)
+      - Default: generate from current configuration (core services, modules on main menu,
+        mail count placeholder or static title line — see below)
+      - Server reads cached file on HELP/main menu display; no rebuild every request
+      - Regenerate when operator changes core services, module flags, or uses admin action
+      - Operator may edit the file directly for branding/layout; invalid/oversized file
+        falls back to auto-generated content (200 bytes per mesh packet; multi-packet OK)
+      - Admin: Administration -> Regenerate Main Menu (rewrites cache from current config)
+    - Mail count in title: either regenerate menu when mail changes (heavy) or use a
+      fixed title line in cached file and show mail count in a separate short line on HELP
     - Module keys on main menu (per-module flag, e.g. main_menu_visible on modules table)
       - Validate menu_option does not collide with core keys B, C, R, S, M, X
       - Dynamic main_menu_handlers dispatch (core handlers + module get_by_menu_option)
@@ -20,11 +39,11 @@ TODO for Release 1.1
       - All enabled modules on main menu AND suppress_modules_menu on -> no [M]odules
       - Show [M]odules when any enabled module is not on main menu, or when suppress
         is off and at least one module exists (operator may still want the aggregator)
-    - Bulletin, Channel, and Mail submenus stay fixed format as in Rel 1.0
+    - Bulletin, Channel, and Mail submenus stay fixed format as in Rel 1.0 when enabled
     - Suggested phasing:
-      - Phase A: runtime build_menu, hide M when no modules, suppress toggle
-      - Phase B: per-module main_menu_visible, dynamic handler table, key collision checks
-      - Phase C: operator custom menu file with validation and fallback
+      - Phase A: Core Services toggles, sync/schedule bypass, admin Core Services screen
+      - Phase B: cached main menu file + Regenerate Main Menu; runtime handler map
+      - Phase C: per-module main_menu_visible, key collision checks, operator file edit
 
 - Device Blacklist
     - Ability to ban user by hex node id for misbehaving users
