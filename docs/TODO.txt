@@ -19,27 +19,39 @@ TODO for Release 1.1
 - Dynamic Main Menu
     - Build on existing build_menu() in command_handlers.py (two-column layout today)
     - Driven by Core Services toggles + enabled modules + suppress/hide Modules rules
-    - Cached main menu file (e.g. menu/main_menu.txt or path in sys_config)
-      - Default: generate from current configuration (core services, modules on main menu,
-        mail count placeholder or static title line — see below)
-      - Server reads cached file on HELP/main menu display; no rebuild every request
-      - Regenerate when operator changes core services, module flags, or uses admin action
-      - Operator may edit the file directly for branding/layout; invalid/oversized file
+    - Two-part display on HELP:
+      - Line 1 (fixed format, built at display time): "= {board_name} : {mail_count} Msg(s) ="
+        so inbox count stays current without regenerating the cached options file
+      - Body (cached): menu option lines read from menu/main_menu.txt (path in sys_config)
+    - Cached options file menu/main_menu.txt
+      - Contains only the option rows (not the title line); generated from current config
+      - Server reads file when showing main menu; no rebuild every request
+      - Regenerate when core services, module flags, or layout rules change, or via admin
+      - Before overwrite: copy existing menu/main_menu.txt to menu/main_menu.old
+      - Operator may edit main_menu.txt for branding/layout; invalid/oversized body
         falls back to auto-generated content (200 bytes per mesh packet; multi-packet OK)
       - Admin: Administration -> Regenerate Main Menu (rewrites cache from current config)
-    - Mail count in title: either regenerate menu when mail changes (heavy) or use a
-      fixed title line in cached file and show mail count in a separate short line on HELP
+    - Main menu layout change (1.1): free [M] for Mail submenu; Modules uses [O]
+      - Top level (example two-column):
+          [B]ulletins   [C]hannels
+          [M]ail        M[O]dules
+          E[X]IT
+      - [M]ail submenu (when Mail core service enabled): [R]ead Mail, [S]end Mail, E[X]IT
+        (same flows as today; only navigation changes)
+      - M[O]dules submenu replaces today's [M]odules entry (key O, label M[o]dules)
     - Module keys on main menu (per-module flag, e.g. main_menu_visible on modules table)
-      - Validate menu_option does not collide with core keys B, C, R, S, M, X
+      - Validate menu_option does not collide with core keys B, C, M, O, X (and R/S only
+        inside Mail submenu, not on main menu)
       - Dynamic main_menu_handlers dispatch (core handlers + module get_by_menu_option)
-    - Suppress [M]odules submenu (global flag, e.g. bbs.suppress_modules_menu)
+    - Suppress M[O]dules submenu (global flag, e.g. bbs.suppress_modules_menu)
       - When on, promoted modules are main-menu only (no duplicate listing in submenu)
-    - Hide [M]odules on main menu when nothing needs the submenu:
-      - No enabled modules -> no [M]odules
-      - All enabled modules on main menu AND suppress_modules_menu on -> no [M]odules
-      - Show [M]odules when any enabled module is not on main menu, or when suppress
+    - Hide M[O]dules on main menu when nothing needs the submenu:
+      - No enabled modules -> no M[O]dules row
+      - All enabled modules on main menu AND suppress_modules_menu on -> no M[O]dules row
+      - Show M[O]dules when any enabled module is not on main menu, or when suppress
         is off and at least one module exists (operator may still want the aggregator)
-    - Bulletin, Channel, and Mail submenus stay fixed format as in Rel 1.0 when enabled
+    - Hide [M]ail on main menu when Mail core service is off
+    - Bulletin and Channel submenus stay fixed format as in Rel 1.0 when enabled
     - Suggested phasing:
       - Phase A: Core Services toggles, sync/schedule bypass, admin Core Services screen
       - Phase B: cached main menu file + Regenerate Main Menu; runtime handler map
