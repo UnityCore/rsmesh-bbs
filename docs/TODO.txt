@@ -57,6 +57,34 @@ TODO for Release 1.1
       - Phase B: cached main menu file + Regenerate Main Menu; runtime handler map
       - Phase C: per-module main_menu_visible, key collision checks, operator file edit
 
+- Module sync capability (framework extension)
+    - Bulletins, Mail, and Channels remain core sync types (tc2/rsv1 wire formats unchanged)
+    - Modules today: mesh menus, schedules, register_service only — no sync hooks
+    - Goal: let enabled modules register optional sync participation without moving core
+      services into modules (Channels stays core for 1.1)
+    - Module registration (at on_load or via ModuleManager), e.g.:
+      - sync_record_type id (module-owned data; may use module-local DB like node_info)
+      - rsv1 wire message type(s) and encode/decode handlers (rsv1 first; tc2 optional later)
+      - inbound ingest handler (called from message_processing when peer + module enabled)
+      - outbound sync handler for pending records (called from sync_pending_records worker)
+      - optional delete/reconcile handler if the module needs peer delete semantics
+    - Gating:
+      - Ignore module sync ingest when module disabled (same idea as core service off)
+      - Respect sync peer flags where applicable; module may define peer flag names or use
+        a generic modules sync enable on the peer row (design TBD)
+    - record_sync_peers / synced status:
+      - Extend or generalize beyond SYNCED_TABLES for module record types, or module
+        stores sync state in its own DB with a documented contract
+    - Admin tool:
+      - List Unsynced Data: include module-registered types when module enabled
+      - Module admin screens may show module-specific sync status
+      - Status/splash counts: optional module hook to contribute lines (or query via service)
+    - docs/README-MODULES.md: document sync registration API and first reference module
+    - Suggested phasing:
+      - Phase A: registration API + dispatch from message_processing / sync_pending_records
+      - Phase B: admin List Unsynced integration; peer flag design
+      - Phase C: first module using sync (candidate: proof-of-concept module, not core Channels)
+
 - Device Blacklist
     - Ability to ban user by hex node id for misbehaving users
     - Would be good to send an explanation in a message
@@ -78,7 +106,7 @@ TODO for Release 1.2
     - Would be good if a board could publish to multiple MQTT servers
 
 - Event/Calendar Module
-    - Optional Module using module framework
+    - Optional Module using module framework (depends on 1.1 module sync capability)
     - Used to inform of coming events
     - Track event name, day, month, year, start_time, end_time, location
     - Have optional detail message as free text that mesh user can request when viewing
