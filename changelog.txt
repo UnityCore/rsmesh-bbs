@@ -26,12 +26,13 @@ Core Services (admin)
 Sync (rsv1)
   - Bulletin ingest upserts by unique_id (tc2 remains insert-only)
   - Pinned bulletins sync via rsv1 pin field
-  - Protocol differences documented (README, docs/rsv1-sync-examples.md)
+  - Protocol differences documented in docs/RSMESH-BBS-DEVELOPER-GUIDE.md
 
 Documentation
-  - Admin guide moved to docs/README-ADMIN.md
-  - Module development guide moved to docs/README-MODULES.md
-  - Mesh user guide moved to docs/RSMESH-BBS-USER-GUIDE.md
+  - Sysop guide: docs/RSMESH-BBS-SYSOP-GUIDE.md (renamed from README-ADMIN.md)
+  - Developer guide: docs/RSMESH-BBS-DEVELOPER-GUIDE.md
+  - Mesh user guide: docs/RSMESH-BBS-USER-GUIDE.md
+  - Module development merged into docs/RSMESH-BBS-DEVELOPER-GUIDE.md
   - Planned enhancements tracked in docs/TODO.txt
 
 Release 1.0

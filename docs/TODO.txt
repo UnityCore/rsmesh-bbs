@@ -90,7 +90,7 @@ Status summary (2026-09-11)
       - List Unsynced Data: include module-registered types when module enabled
       - Module admin screens may show module-specific sync status
       - Status/splash counts: optional module hook to contribute lines (or query via service)
-    - docs/README-MODULES.md: document sync registration API and first reference module
+    - docs/RSMESH-BBS-DEVELOPER-GUIDE.md: document sync registration API and first reference module
     - Suggested phasing:
       - Phase A: registration API + dispatch from message_processing / sync_pending_records
       - Phase B: admin List Unsynced integration; peer flag design

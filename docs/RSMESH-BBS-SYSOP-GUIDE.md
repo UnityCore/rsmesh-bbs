@@ -1,13 +1,214 @@
-# RSMesh BBS Admin Tool
+# RSMesh BBS Sysop Guide
 
 Release 1.1
 
-Interactive terminal admin for managing the BBS database, sync peers, modules, and related configuration. The admin tool does not require a radio connection.
+Operator reference for running and configuring RSMesh BBS: the mesh client simulator, configuration, node and channel directories, background workers, shipped modules, and the interactive admin tool.
 
-## Requirements
+## Mesh client (no radio)
 
-- Python 3.8+ with the project [virtual environment](../README.md#setup-virtual-environment) activated
-- `config.yml` in the project directory (copy from `example_config.yml` if needed)
+`rsmesh-bbs_client.py` simulates a mesh handset in-process — useful for testing menus, mail, and bulletins without a Meshtastic device or running server. It uses the same `rsmesh-bbs.db` and `config.yml` as the server (for board name and other BBS settings), but drives the BBS command handlers directly through a mock interface (no radio, no PyPubSub).
+
+Simulated handset identity (`node_id`, `short_name`, `long_name`) is configured in `config_client.yml`. Copy the starter file before your first run:
+
+```bash
+cp example_config_client.yml config_client.yml
+```
+
+With the [virtual environment](../README.md#setup-virtual-environment) activated:
+
+```bash
+python rsmesh-bbs_client.py --fast
+```
+
+| Flag | Purpose |
+|------|---------|
+| `--fast` | Skip mesh reply pacing delays (recommended for interactive use) |
+| `-c` / `--config` | Path to `config_client.yml` (default: `./config_client.yml`) |
+| `--node-id` | Simulated client node ID (default: from `config_client.yml`) |
+| `--node-num` | Simulated client node number (default: derived from node ID) |
+| `--short-name` | Simulated client short name (default: from `config_client.yml`) |
+| `--long-name` | Simulated client long name (default: from `config_client.yml`) |
+| `--verbose` / `-v` | Print `(no reply)` when the BBS sends no response (debugging) |
+
+During multiline mail compose, the BBS often sends no per-line reply until you type `END`. By default the client stays silent for those empty turns; use `--verbose` if you want to see `(no reply)` for each blank response.
+
+Example `config_client.yml`:
+
+```yaml
+client:
+  node_id: "!0c0ffee0"
+  short_name: COFY
+  long_name: CLI Test User
+```
+
+Command-line flags override values from `config_client.yml` when you need a one-off identity. The board banner still comes from `config.yml` in the project directory (see [Configuration reference](#configuration-reference)).
+
+Type messages as you would from a handset (single-letter menu commands such as `B`, `M`, `R`). See the [User Guide](RSMESH-BBS-USER-GUIDE.md) for menus and flows. Press Enter or type `X` for the main menu. Ctrl+C or Ctrl+D to quit.
+
+The pytest `mesh_client` fixture in `tests/conftest.py` uses the same harness against a temporary database. See [Tests](RSMESH-BBS-DEVELOPER-GUIDE.md#tests) in the Developer Guide.
+
+## Configuration reference
+
+| Setting | Location | Notes |
+|---------|----------|-------|
+| Simulated handset identity | `config_client.yml` `client` | `node_id`, `short_name`, and `long_name` for `rsmesh-bbs_client.py` (see `example_config_client.yml`) |
+| Board name, superuser, event bus topic | `config.yml` `bbs` | Banner text, Urgent board permission, and PyPubSub topic for incoming radio packets (`eventbus_topic`, default `meshtastic.receive`) |
+| Urgent mesh alerts (local) | `config.yml` `bbs` `send_urgent_alert_local` | `true`/`false` — broadcast on primary channel when an Urgent bulletin is posted on this node (default `false`) |
+| Urgent mesh alerts (sync) | `config.yml` `bbs` `send_urgent_alert_from_sync` | `true`/`false` — broadcast when an Urgent bulletin is ingested from a sync peer (default `false`) |
+| Core services (defaults) | `config.yml` `bbs` `core_bulletins`, `core_mail`, `core_channels` | `true`/`false` — seeded into `sys_config` on first run; toggled live under **Administration → Core Services** in the admin tool |
+| Radio interface | `config.yml` `interface` | `serial` or `tcp`; set `port` or `hostname` as needed |
+| Peer sync interval | `config.yml` `schedule` | Minutes between retries for unsynced records |
+| Module schedule tick | `config.yml` `schedule` | Minutes between module schedule worker runs (`module_exec_minutes`) |
+| Node Info purge / scan | `modules/node_info/config.yml` | Per-module settings (`purge_minutes`, `scan_interval_minutes`) |
+| Deleted bulletin purge interval | `config.yml` `schedule` | Minutes between purge runs for bulletins marked deleted (`sync_purge_minutes`) |
+| Mesh bulletin display age | `config.yml` `schedule` | Days of non-pinned bulletins shown on mesh boards (`bulletin_display_age_days`) |
+| Sync peers | `sync_peers` table | Configure with `rsmesh-bbs_admin.py`. Protocols: `tc2`, `rsv1` (and future `rsv2`, …). See [Sync wire formats](RSMESH-BBS-DEVELOPER-GUIDE.md#sync-wire-formats). |
+| Sysadmin nodes | `sysadmin_nodes` table | Configure with `rsmesh-bbs_admin.py` (also seeded from `superuser_node` and node catalog) |
+
+See `example_config.yml` for a commented starter BBS configuration and `example_config_client.yml` for the mesh client handset identity.
+
+## Urgent board alerts
+
+The **Urgent** bulletin board is restricted to sysadmin nodes for posting. When enabled, new Urgent bulletins can trigger a mesh-wide broadcast on the radio primary channel (channel index 0).
+
+| Setting | Default | Behavior |
+|---------|---------|----------|
+| `send_urgent_alert_local` | `false` | Broadcast when a user posts Urgent on this BBS, or when an operator adds an Urgent bulletin in the admin tool |
+| `send_urgent_alert_from_sync` | `false` | Broadcast when an Urgent bulletin arrives from a sync peer |
+
+Both settings use `true` or `false`. Changes take effect immediately via `sys_config` (admin tool or server restart seeding from `config.yml`).
+
+**Local posts** from mesh users are sent immediately when `send_urgent_alert_local` is `true`. **Admin Add Bulletin** queues the alert in the database; the running server delivers it on the main loop (typically within about one second). Editing a bulletin does not queue or send an alert.
+
+If `send_urgent_alert_local` is turned off while alerts are queued, the server drops queued rows without sending. Queued alerts are only created when the setting is `true` at add time.
+
+Before sending a queued alert, the server verifies the bulletin still exists and is still on the Urgent board.
+
+## Pinned bulletins
+
+Operators can pin important bulletins so they stay visible on mesh boards longer than normal posts. Pinning is set in the admin tool (**Bulletins → Edit Bulletin → Pinned Y/N**). Mesh users cannot pin or unpin from the handset.
+
+| Audience | What they see |
+|----------|----------------|
+| **Mesh users** | Pinned bulletins (`pinned = Y`) always appear in board lists and can be read, regardless of age. Non-pinned bulletins drop off after `schedule.bulletin_display_age_days` (default 30 days). Pinned entries are listed first on each board. |
+| **Admin tool** | All non-deleted bulletins, including older unpinned posts, for full management. |
+
+New bulletins are unpinned by default. Changing the pinned flag (or other bulletin fields) in **Edit Bulletin** marks the record unsynced so the update can sync to **rsv1** peers. **tc2** peers receive only the original bulletin create and do not get pin or edit updates.
+
+## Mail forwarding
+
+When mail is delivered to a recipient that matches a **node catalog** entry (by hex node ID or short name), the server checks **BBS Mail Forward To**. If set, the message is stored for the resolved forward target instead, and a footer line is appended: `Sent to {original short name}`.
+
+The forward target can be a catalog hex ID or short name, or resolved through the same short-name lookup used for send mail. If the target cannot be resolved, mail stays with the original recipient. Forwarding does not apply to mail that only matches `mesh_nodes` or live radio nodes without a catalog row.
+
+Configure forwarding under **Administration → Node Catalog** in the admin tool. See [Node catalog (operator reference)](#node-catalog-operator-reference).
+
+## Node directory
+
+Three related stores serve different purposes:
+
+| Store | Where | Purpose |
+|-------|--------|---------|
+| **Node catalog** | Main DB (`node_catalog`) | Operator-maintained reference (optional notes, mail forward, BBS admin flags) |
+| **Mesh nodes** | Main DB (`mesh_nodes`) | Core minimal node directory (hex ID, short/long name, last heard) for server operations |
+| **Node Info** | `modules/node_info/node_info.db` | Optional module — enhanced telemetry reference (signal, GPS, hops, etc.) |
+
+### Short-name and hex ID resolution
+
+When a mesh user sends mail (or sync normalizes a node reference), the server resolves short names against, in order:
+
+1. Nodes currently known to the attached radio (`interface.nodes`)
+2. **Mesh nodes** table
+3. **Node Info** module directory (when enabled)
+4. **Node catalog** (when a matching short name exists)
+
+Any of these can supply a hex node ID for delivery. The catalog is one helper among several — you do not need catalog rows for nodes the radio already knows.
+
+### Mesh nodes vs Node Info
+
+**Mesh nodes** is part of the core database and is always available. The server maintains it automatically from live mesh traffic (any packet the radio hears) and, when configured, from **rsv1** peer **Sync mesh nodes** ingest. Each row stores only what the BBS needs for day-to-day operation: hex node ID, short name, long name, and last heard. That minimal record supports mail recipient lookup, short-name resolution when the radio’s live node list is incomplete, and mesh-node sync between peers — **even when the Node Info module is disabled**.
+
+**Node Info** is an **optional module** (enabled by default, but you can turn it off under **Administration → Modules**). It keeps a separate, richer telemetry database: SNR, RSSI, hop count, GPS coordinates, channel-quality estimates, and related fields gathered from overheard packets. Mesh users reach it from **M[o]dules** (`O` on the main menu) for node counts and statistics; sysadmins can list detailed rows. Think of Node Info as an **enhanced telemetry reference**, not a requirement for core BBS features.
+
+If Node Info is off, mail, sync, and short-name resolution still work through the attached radio’s live node list, the **mesh nodes** table, and the optional **node catalog**.
+
+### Node catalog (operator reference)
+
+The **node catalog** is a **convenience for the system operator**: an optional notebook of nodes you care about. It is not required for normal BBS operation.
+
+**What the server uses at runtime:**
+
+| Field | Used by server? |
+|-------|-----------------|
+| `short_name`, `node_hex_username`, `long_name` | Yes — short-name/hex lookup and mail inbox matching |
+| `bbs_mail_forward_to` | Yes — [mail forwarding](#mail-forwarding) |
+| `bbs_admin` | Yes — when `Y`, syncs `sysadmin_nodes` (Urgent post, bulletin delete on mesh) |
+| `mesh_admin` | No — operator reference only (see below) |
+| `public_key`, `private_key`, `ble_pin`, `has_gps`, `hardware`, `comment` | No — optional operator notes; safe to leave blank (defaults apply for BLE PIN) |
+
+You may store keys and PINs for your own reference, but the BBS never uses them for mesh or sync behavior.
+
+**Mesh Admin** (`mesh_admin`) is an operator notebook flag: it marks that **this catalog node is intended to perform remote administration on other nodes** — not that other nodes can administer it. A node with `mesh_admin = Y` is your administrator handset or gateway: its public key is the one you add on **other** radios under **Radio Config → Security → Admin Settings** (Primary, Secondary, or Tertiary Admin Key). Those target nodes will then accept configuration changes from the Mesh Admin node to the extent Meshtastic allows. The catalog field only records that you have set up (or plan to set up) that relationship; the BBS does **not** read `mesh_admin` and **cannot** push config to any radio that has not been configured to accept it. Use the catalog **Public key** field optionally to store the Mesh Admin node's key for your own fleet documentation.
+
+**Mesh nodes** — see [Mesh nodes vs Node Info](#mesh-nodes-vs-node-info). Operators can also add, edit, import, or purge rows in the admin tool (**Administration → Mesh Nodes**).
+
+**Node Info** — optional enhanced telemetry module; configure purge/scan in `modules/node_info/config.yml`. See [Shipped modules (mesh menus)](#shipped-modules-mesh-menus).
+
+## Channel directory
+
+The BBS maintains a **channel directory**: a list of Meshtastic channel names and PSKs so mesh users can find and join shared channels.
+
+### PSK model
+
+A channel PSK is a **public key for shared channel access**, not a secret credential. The directory exists to distribute PSKs openly — anyone on the mesh can view published entries. The BBS does not validate that a poster controls a PSK or that it matches a live Meshtastic channel; incorrect entries simply fail to attract participants, and posters can submit a corrected entry or contact the operator.
+
+Use **separate PSKs** for private operator traffic that should never appear in the directory.
+
+### Staged publishing
+
+| Source | Default `publish` | Visible on mesh | Synced to peers |
+|--------|-------------------|-----------------|-----------------|
+| Mesh user **Post** | `N` | No | No |
+| Sync peer ingest | `N` | No | No |
+| Admin tool **Add Channel** | `Y` | Yes | Yes (when synced) |
+
+Mesh users submit channel name and PSK; the operator reviews unpublished rows in the admin tool and sets **Publish** to `Y` when ready. Only published channels appear in **View** on the mesh or sync outbound to peers.
+
+### Sync peer trust
+
+Configure sync peers in the admin tool. **Ingest channels in** controls whether a peer may add channel rows to your database (always unpublished until you approve). **Sync channels out** controls whether your published channels are sent to that peer. Limit ingest on untrusted peers.
+
+## Operator concepts
+
+Background workers in the running server (intervals from `config.yml` `schedule`):
+
+| Worker | Setting | Behavior |
+|--------|---------|----------|
+| Peer sync | `peer_sync_minutes` | Retries unsynced bulletins, mail, and published channels to eligible sync peers (skips types disabled under **Core Services**) |
+| Purge | `sync_purge_minutes` | Reloads peer/sysadmin config; purges soft-deleted bulletins/channels and pushes delete sync (skips types disabled under **Core Services**) |
+| Module schedule | `module_exec_minutes` | Runs enabled module scheduled tasks (Node Info scan/purge, etc.) |
+
+**Core Services** — Under **Administration → Core Services**, operators can enable or disable the built-in Bulletins, Mail, and Channels features. Settings live in `sys_config` (`bbs.core_bulletins`, `bbs.core_mail`, `bbs.core_channels`) and are seeded from `config.yml` on upgrade (default enabled). When a service is off, the admin tool hides its top-level menu, inbound peer sync for that record type is skipped, and background sync/purge workers omit that type. On the mesh, `[M]ail` is hidden when core mail is off; `[B]ulletins` and `[C]hannels` remain available for optional module overrides on those keys.
+
+**Soft delete** — Admin **Delete Bulletins** / **Delete Channels** (and mesh sysadmin bulletin delete) set `deleted='Y'`. The purge worker removes them locally and syncs deletes to peers. **List Unsynced Data** in the admin tool shows records still pending peer sync.
+
+**Reconcile** — When a sync peer deletes a bulletin or channel, your copy is marked `delete_reconcile='Y'` until an operator restores or permanently deletes it (**Review Reconcile** menus).
+
+**Sysconfig** — Many `config.yml` values are copied into the `sys_config` table on first run. The admin tool can edit them live; **Export Configuration to config.yml** writes the database values back to `config.yml`.
+
+## Shipped modules (mesh menus)
+
+Enable under **Administration → Modules**. Users open them from **M[o]dules** (`O`) on the main menu.
+
+| Module | Menu option | Mesh actions |
+|--------|-------------|--------------|
+| **Fortune** | `F` (default) | Shows a random fortune on entry; any message fetches another; `X` exits |
+| **Node Info** | (per `modules` table) | `[N]odes` counts by time window, `[H]ardware` model counts, `[R]oles` role counts; sysadmins also get `[L]ist Nodes` (detailed signal/GPS lines) |
+| **Example Hello** | (disabled by default) | Greets on entry; demonstrates visits DB and scheduled greetings |
+
+Fortune has no admin screen. Node Info admin is view-only (**List Node Info**). See [Module development](RSMESH-BBS-DEVELOPER-GUIDE.md#modules) in the Developer Guide.
+
+---
 
 ## Starting the admin tool
 
@@ -20,6 +221,8 @@ python rsmesh-bbs_admin.py
 | `-v` / `--version` | Print version and exit |
 
 On startup the tool initializes the database, seeds system configuration from `config.yml` when needed, backfills sync peer timestamps, and shows a splash screen before the main menu.
+
+Sync peer and sysadmin changes made in the admin tool are picked up by the running server automatically on the next mesh message or background worker cycle.
 
 ---
 
@@ -266,7 +469,7 @@ RS version alerts appear when a peer sends a sync wire version that does not mat
 
 **Protocol behavior:**
 - **`tc2`** — TC²-compatible pipe-delimited sync (`BULLETIN|`, `MAIL|`, etc.). Maintains TC²-BBS-mesh conventions: bulletin sync is **create-only** (duplicate `unique_id` ingests are skipped; pin/edit updates are **not** sent). Mesh node sync is forced to **`N`**. Messages must fit in one 200-byte packet.
-- **`rsv1`** — RS wire format (`RS|1|TYPE|{json}`). Supports bulletin **upsert** by `unique_id` (edits and **Pinned** changes propagate), chunked oversized payloads, mesh node sync, and RS version negotiation. See README [Sync wire formats](../README.md#sync-wire-formats) and [rsv1 message examples](rsv1-sync-examples.md).
+- **`rsv1`** — RS wire format (`RS|1|TYPE|{json}`). Supports bulletin **upsert** by `unique_id` (edits and **Pinned** changes propagate), chunked oversized payloads, mesh node sync, and RS version negotiation. See [Sync wire formats](RSMESH-BBS-DEVELOPER-GUIDE.md#sync-wire-formats) and [rsv1 message examples](RSMESH-BBS-DEVELOPER-GUIDE.md#rsv1-sync-message-examples).
 
 Duplicate `bbs_node` values are rejected on add.
 
@@ -311,17 +514,19 @@ Select: `Enter module ID or X=cancel:`
 
 #### Module admin submenus
 
-Enabled modules with `modules/{dir}/{dir}_admin.py` appear as additional numbered options. See [Module admin screens](#module-admin-screens) below and [README-MODULES.md](README-MODULES.md) for module development.
+Enabled modules with `modules/{dir}/{dir}_admin.py` appear as additional numbered options. See [Module admin screens](#module-admin-screens) below and the [Developer Guide](RSMESH-BBS-DEVELOPER-GUIDE.md#modules) for module development.
 
 ### Backup
 
-Creates `backup/backup_{YYYYMMDDHHMMSS}.zip` with no further prompts.
+**Administration → Backup** creates a timestamped `backup/backup_YYYYMMDDHHMMSS.zip` with no further prompts. SQL dumps are written briefly under `backup/staging/` (same layout as the live tree), then removed after the zip is created.
 
 The archive contains:
-- SQL dumps of all `*.db` files in the project root and under `modules/*/`
+- SQL dumps of all `*.db` files in the project root and under `modules/*/` (for example `rsmesh-bbs.sql`, `modules/node_info/node_info.sql`)
 - `config.yml` and all `modules/*/config.yml` files
 
-Success message reports file count, SQL dump count, and config count.
+Dumps use SQLite’s connection API, so WAL sidecar files are not required. Success message reports file count, SQL dump count, and config count.
+
+Restore by unzipping and loading each `.sql` with `sqlite3 database.db < dump.sql`.
 
 ---
 
@@ -513,7 +718,7 @@ The BBS server uses catalog rows only for **short-name/hex ID lookup**, **mail i
 
 **Mesh admin (Y/N)** is an operator reference flag only — it does not change BBS or mesh behavior. Set **`Y`** when **this catalog entry is the administrator node** that will send remote config changes to other radios (not when this node is the one being administered). On each **target** radio, add **this node's public key** under **Radio Config → Security → Admin Settings** (Primary, Secondary, or Tertiary Admin Key). Configured targets will accept changes from the Mesh Admin node per Meshtastic specs; unconfigured nodes will not. The flag only documents that you have made (or intend to make) those radio-side settings. Use the catalog **Public key** field optionally to record the administrator node's key for your own fleet documentation.
 
-See [README — Node catalog (operator reference)](../README.md#node-catalog-operator-reference) for the full runtime field matrix.
+See [Node catalog (operator reference)](#node-catalog-operator-reference) for the full runtime field matrix.
 
 | Option | Action |
 |--------|--------|
@@ -552,7 +757,7 @@ List **Admin: Y** when `mesh_admin=Y` or `bbs_admin=Y` (visual hint only for `me
 
 Adding or changing `bbs_admin` syncs the `sysadmin_nodes` table.
 
-**BBS mail forward to** — optional hex node ID or short name. When mail is addressed to this catalog entry, it is stored for the forward target instead, with a `Sent to {short name}` footer. See [README — Mail forwarding](../README.md#mail-forwarding).
+**BBS mail forward to** — optional hex node ID or short name. When mail is addressed to this catalog entry, it is stored for the forward target instead, with a `Sent to {short name}` footer. See [Mail forwarding](#mail-forwarding).
 
 ### Edit / Delete Node Catalog Entry
 
@@ -576,7 +781,7 @@ Import mode: Replace (`R`) or Append (`A`, default).
 
 Core **minimal node directory** in the main database (`mesh_nodes`): hex node ID, short name, long name, and last heard. The server populates it automatically from live mesh traffic and from **rsv1** peer sync when **Sync mesh nodes** is enabled. This store supports mail recipient lookup, short-name resolution, and mesh-node sync **without** requiring the optional **Node Info** module.
 
-Operators can also add, edit, import, export, or purge rows here. See README [Mesh nodes vs Node Info](../README.md#mesh-nodes-vs-node-info).
+Operators can also add, edit, import, export, or purge rows here. See [Mesh nodes vs Node Info](#mesh-nodes-vs-node-info).
 
 | Option | Action |
 |--------|--------|
@@ -643,7 +848,7 @@ Optional module (disable under **Modules** if you do not want enhanced telemetry
 | `1` | List Node Info |
 | `0` | Back to Modules |
 
-Data comes from `modules/node_info/node_info.db` (not the main BBS database). See README [Mesh nodes vs Node Info](../README.md#mesh-nodes-vs-node-info).
+Data comes from `modules/node_info/node_info.db` (not the main BBS database). See [Mesh nodes vs Node Info](#mesh-nodes-vs-node-info).
 
 **Per node (3 lines):**
 - `{short} - {long} [{node_id}]  Seen: {relative}`
@@ -687,7 +892,7 @@ Shown on bulletin, mail, and channel list/detail views:
 | `tc2` | Pipe-delimited (`BULLETIN|`, `MAIL|`, …) | Create-only (TC² standard) | No | Not supported |
 | `rsv1` | `RS\|1\|TYPE\|{json}` | Upsert by `unique_id` | Yes (`pin`) | Supported when enabled per peer |
 
-See README [Sync wire formats](../README.md#sync-wire-formats) and [rsv1 message examples](rsv1-sync-examples.md) for the full comparison.
+See [Sync wire formats](RSMESH-BBS-DEVELOPER-GUIDE.md#sync-wire-formats) and [rsv1 message examples](RSMESH-BBS-DEVELOPER-GUIDE.md#rsv1-sync-message-examples) for the full comparison.
 
 ### Node ID format
 
