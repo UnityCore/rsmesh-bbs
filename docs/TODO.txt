@@ -1,63 +1,48 @@
 TODO for Release 1.1
 ====================
 
-- Core Services (operator toggles for Bulletins, Mail, Channels)
+Status summary (2026-09-11)
+  - Core Services Phase A: done (admin toggles, sync/schedule bypass, admin menu gating)
+  - Dynamic Main Menu: partial (cached mesh_ui/main_menu.txt, M/O layout, mail submenu)
+  - Module sync framework: not started
+  - Device Blacklist: not started (moved to 1.2 backlog below)
+
+- Core Services (operator toggles for Bulletins, Mail, Channels) [DONE - Phase A]
     - Admin: Administration -> Core Services (after System Configuration)
       - Toggle each core service on/off (default on for upgrades)
-      - Store in sys_config (bbs scope) or dedicated table; seed from config.yml on first run
+      - Store in sys_config (bbs.core_bulletins, bbs.core_mail, bbs.core_channels);
+        seed from config.yml on first run / upgrade
     - When a core service is OFF:
-      - Mesh: hide related main-menu key(s); reject or no-op mesh user commands for that service
-      - Sync outbound: sync_pending_records / sync_*_record skip that record type
-      - Sync inbound: ignore BULLETIN| / MAIL| / CHANNEL| and rsv1 equivalents for disabled
-        types (same pattern as peer ingest_bulletins / ingest_channels flags today)
-      - Schedule: purge workers and other background jobs skip disabled types (e.g. no
-        bulletin purge when bulletins off)
-      - Admin tool: hide or disable menus for disabled services (Bulletins, Mail, Channels)
+      - Mesh: core handler skipped; menu keys B/C/M remain visible for optional module
+        overrides (M hidden when Mail off); disabled core keys route to module on_menu_option
+        match, else redraw main menu (no "not available" message)
+      - Sync outbound: sync_pending_records, sync_*_record, delete sync skip that type
+      - Sync inbound: ignore BULLETIN| / MAIL| / CHANNEL| and rsv1 equivalents
+      - Schedule: purge_deleted_bulletins / purge_deleted_channels skip when disabled
+      - Admin tool: main menu hides Bulletins / Channels / Mail when service off
+      - List Unsynced Data omits disabled record types
     - Peer sync peer flags (sync_bulletins, sync_mail, etc.) remain per-peer; core service
       off is a local master switch that overrides outbound/inbound regardless of peer config
 
-- Dynamic Main Menu
-    - Build on existing build_menu() in command_handlers.py (two-column layout today)
-    - Driven by Core Services toggles + enabled modules + suppress/hide Modules rules
-    - Two-part display on HELP:
-      - Line 1 (fixed format, built at display time): "= {board_name} : {mail_count} Msg(s) ="
-        so inbox count stays current without regenerating the cached options file
-      - Body (cached): menu option lines read from menu/main_menu.txt (path in sys_config)
-    - Cached options file menu/main_menu.txt
-      - Contains only the option rows (not the title line); generated from current config
-      - Server reads file when showing main menu; no rebuild every request
-      - Regenerate when core services, module flags, or layout rules change, or via admin
-      - Before overwrite: copy existing menu/main_menu.txt to menu/main_menu.old
-      - Operator may edit main_menu.txt for branding/layout; invalid/oversized body
-        falls back to auto-generated content (200 bytes per mesh packet; multi-packet OK)
-      - Admin: Administration -> Regenerate Main Menu (rewrites cache from current config)
-    - Main menu layout change (1.1): free [M] for Mail submenu; Modules uses [O]
-      - Top level (example two-column):
-          [B]ulletins   [C]hannels
-          [M]ail        M[O]dules
-          E[X]IT
-      - [M]ail submenu (when Mail core service enabled): [R]ead Mail, [S]end Mail, E[X]IT
-        (same flows as today; only navigation changes)
-      - M[O]dules submenu replaces today's [M]odules entry (key O, label M[o]dules)
-    - Module keys on main menu (per-module flag, e.g. main_menu_visible on modules table)
-      - Validate menu_option does not collide with core keys B, C, M, O, X (and R/S only
-        inside Mail submenu, not on main menu)
-      - Dynamic main_menu_handlers dispatch (core handlers + module get_by_menu_option)
-    - Suppress M[O]dules submenu (global flag, e.g. bbs.suppress_modules_menu)
-      - When on, promoted modules are main-menu only (no duplicate listing in submenu)
-    - Hide M[O]dules on main menu when nothing needs the submenu:
-      - No enabled modules -> no M[O]dules row
-      - All enabled modules on main menu AND suppress_modules_menu on -> no M[O]dules row
-      - Show M[O]dules when any enabled module is not on main menu, or when suppress
-        is off and at least one module exists (operator may still want the aggregator)
-    - Hide [M]ail on main menu when Mail core service is off
-    - Bulletin and Channel submenus stay fixed format as in Rel 1.0 when enabled
-    - Suggested phasing:
-      - Phase A: Core Services toggles, sync/schedule bypass, admin Core Services screen
-      - Phase B: cached main menu file + Regenerate Main Menu; runtime handler map
-      - Phase C: per-module main_menu_visible, key collision checks, operator file edit
+- Dynamic Main Menu [PARTIAL]
+    - Done:
+      - Two-part HELP display: dynamic title line + cached option body (mesh_ui/main_menu.txt)
+      - Regenerate cache on core-service toggle; copy prior file to mesh_ui/main_menu.old
+      - 1.1 layout: [B]ulletins/[C]hannels, [M]ail/M[o]dules, E[X]IT
+      - [M]ail submenu: [R]ead Mail, [S]end Mail, E[X]IT
+      - Hide [M]ail on main menu when Mail core service is off
+      - dispatch_main_menu_key: core handler or module override for B/C/M
+    - Remaining:
+      - Admin: Administration -> Regenerate Main Menu (manual rewrite of cache)
+      - Optional sys_config path override for main menu file (default mesh_ui/main_menu.txt)
+      - Operator edit of main_menu.txt with invalid/oversized fallback to auto-generated body
+      - Module keys on main menu (per-module main_menu_visible on modules table)
+      - Validate menu_option does not collide with core keys B, C, M, O, X (R/S mail submenu only)
+      - Suppress M[O]dules submenu (bbs.suppress_modules_menu)
+      - Hide M[O]dules when no modules need the aggregator submenu
+      - Driven by enabled modules + suppress/hide Modules rules (not only core services)
 
-- Module sync capability (framework extension)
+- Module sync capability (framework extension) [NOT STARTED]
     - Bulletins, Mail, and Channels remain core sync types (tc2/rsv1 wire formats unchanged)
     - Modules today: mesh menus, schedules, register_service only — no sync hooks
     - Goal: let enabled modules register optional sync participation without moving core
@@ -85,14 +70,14 @@ TODO for Release 1.1
       - Phase B: admin List Unsynced integration; peer flag design
       - Phase C: first module using sync (candidate: proof-of-concept module, not core Channels)
 
+TODO for Release 1.2
+====================
+
 - Device Blacklist
     - Ability to ban user by hex node id for misbehaving users
     - Would be good to send an explanation in a message
     - Would be good to make it a limited period ban (say 1 day, a week, etc) or
       permanent
-
-TODO for Release 1.2
-====================
 
 - MQTT Integration
     - Topic Structure
@@ -116,5 +101,4 @@ TODO for Release 1.2
     - Edit/Delete by admin tool
     - Allow mesh users to set reminder for event.  Give option to send reminder week before,
       day before, both
-
 
