@@ -103,6 +103,12 @@ def _count_synced_peers_for_record(record_type, record_key):
     return c.fetchone()[0]
 
 
+def _core_sync_enabled(record_type):
+    from .core_services import is_core_sync_enabled
+
+    return is_core_sync_enabled(record_type)
+
+
 def _normalize_sync_flag(value, default='Y'):
     normalized = (value or default).strip().upper()
     return 'Y' if normalized == 'Y' else 'N'
@@ -327,65 +333,68 @@ def sync_pending_records(sync_peers, interface):
 
     conn = get_db_connection()
     c = conn.cursor()
-    bulletin_clause = _record_needs_peer_sync_clause('bulletins', 'b', 'unique_id')
 
-    c.execute(
-        f"SELECT board, sender_short_name, subject, content, unique_id, pinned FROM bulletins b "
-        f"WHERE deleted = 'N' AND {bulletin_clause} ORDER BY b.id",
-        ('bulletins',),
-    )
-    for board, sender_short_name, subject, content, unique_id, pinned in c.fetchall():
-        def _send_bulletin(pending_peers):
-            return send_bulletin_to_sync_peers(
-                board,
-                sender_short_name,
-                subject,
-                content,
-                unique_id,
-                pending_peers,
-                interface,
-                pinned=pinned or "N",
-            )
+    if _core_sync_enabled('bulletins'):
+        bulletin_clause = _record_needs_peer_sync_clause('bulletins', 'b', 'unique_id')
+        c.execute(
+            f"SELECT board, sender_short_name, subject, content, unique_id, pinned FROM bulletins b "
+            f"WHERE deleted = 'N' AND {bulletin_clause} ORDER BY b.id",
+            ('bulletins',),
+        )
+        for board, sender_short_name, subject, content, unique_id, pinned in c.fetchall():
+            def _send_bulletin(pending_peers):
+                return send_bulletin_to_sync_peers(
+                    board,
+                    sender_short_name,
+                    subject,
+                    content,
+                    unique_id,
+                    pending_peers,
+                    interface,
+                    pinned=pinned or "N",
+                )
 
-        if _sync_record_to_peers('bulletins', unique_id, 'unique_id', unique_id, peers, _send_bulletin):
-            logging.info(f"Synced bulletin {unique_id} to all peers.")
-        else:
-            logging.warning(f"Bulletin {unique_id} sync incomplete; will retry pending peers.")
+            if _sync_record_to_peers('bulletins', unique_id, 'unique_id', unique_id, peers, _send_bulletin):
+                logging.info(f"Synced bulletin {unique_id} to all peers.")
+            else:
+                logging.warning(f"Bulletin {unique_id} sync incomplete; will retry pending peers.")
 
-    mail_clause = _record_needs_peer_sync_clause('mail', 'm', 'unique_id')
-    c.execute(
-        f"SELECT sender, sender_short_name, recipient, recipient_short_name, subject, content, unique_id "
-        f"FROM mail m WHERE {mail_clause} ORDER BY m.id",
-        ('mail',),
-    )
-    for sender_id, sender_short_name, recipient_id, recipient_short_name, subject, content, unique_id in c.fetchall():
-        def _send_mail(pending_peers):
-            return send_mail_to_bbs_nodes(
-                sender_id, sender_short_name, recipient_id, recipient_short_name,
-                subject, content, unique_id, pending_peers, interface,
-            )
+    if _core_sync_enabled('mail'):
+        mail_clause = _record_needs_peer_sync_clause('mail', 'm', 'unique_id')
+        c.execute(
+            f"SELECT sender, sender_short_name, recipient, recipient_short_name, subject, content, unique_id "
+            f"FROM mail m WHERE {mail_clause} ORDER BY m.id",
+            ('mail',),
+        )
+        for sender_id, sender_short_name, recipient_id, recipient_short_name, subject, content, unique_id in c.fetchall():
+            def _send_mail(pending_peers):
+                return send_mail_to_bbs_nodes(
+                    sender_id, sender_short_name, recipient_id, recipient_short_name,
+                    subject, content, unique_id, pending_peers, interface,
+                )
 
-        if _sync_record_to_peers('mail', unique_id, 'unique_id', unique_id, peers, _send_mail):
-            logging.info(f"Synced mail {unique_id} to all peers.")
-        else:
-            logging.warning(f"Mail {unique_id} sync incomplete; will retry pending peers.")
+            if _sync_record_to_peers('mail', unique_id, 'unique_id', unique_id, peers, _send_mail):
+                logging.info(f"Synced mail {unique_id} to all peers.")
+            else:
+                logging.warning(f"Mail {unique_id} sync incomplete; will retry pending peers.")
 
-    channel_clause = _record_needs_peer_sync_clause('channels', 'c', 'unique_id')
-    c.execute(
-        f"SELECT id, name, psk, unique_id FROM channels c "
-        f"WHERE publish = 'Y' AND deleted = 'N' AND {channel_clause} ORDER BY c.id",
-        ('channels',),
-    )
-    for channel_id, name, psk, unique_id in c.fetchall():
-        def _send_channel(pending_peers):
-            return send_channel_to_bbs_nodes(
-                name, psk, pending_peers, interface, unique_id=unique_id
-            )
+    if _core_sync_enabled('channels'):
+        channel_clause = _record_needs_peer_sync_clause('channels', 'c', 'unique_id')
+        c.execute(
+            f"SELECT id, name, psk, unique_id FROM channels c "
+            f"WHERE publish = 'Y' AND deleted = 'N' AND {channel_clause} ORDER BY c.id",
+            ('channels',),
+        )
+        for channel_id, name, psk, unique_id in c.fetchall():
+            def _send_channel(pending_peers):
+                return send_channel_to_bbs_nodes(
+                    name, psk, pending_peers, interface, unique_id=unique_id
+                )
 
-        if _sync_record_to_peers('channels', unique_id, 'unique_id', unique_id, peers, _send_channel):
-            logging.info(f"Synced channel {name} to all peers.")
-        else:
-            logging.warning(f"Channel {name} sync incomplete; will retry pending peers.")
+            if _sync_record_to_peers('channels', unique_id, 'unique_id', unique_id, peers, _send_channel):
+                logging.info(f"Synced channel {name} to all peers.")
+            else:
+                logging.warning(f"Channel {name} sync incomplete; will retry pending peers.")
 
     sync_mesh_nodes_to_peers(peers, interface)
 
@@ -397,39 +406,41 @@ def get_unsynced_records():
     conn = get_db_connection()
     c = conn.cursor()
     peers = get_sync_peers()
-    bulletin_clause = _record_needs_peer_sync_clause('bulletins', 'b', 'unique_id')
-    mail_clause = _record_needs_peer_sync_clause('mail', 'm', 'unique_id')
-    channel_clause = _record_needs_peer_sync_clause('channels', 'c', 'unique_id')
-
-    c.execute(
-        f"SELECT id, board, sender_short_name, subject, deleted, unique_id FROM bulletins b "
-        f"WHERE deleted = 'N' AND {bulletin_clause} ORDER BY b.id",
-        ('bulletins',),
-    )
     bulletins = []
-    for row in c.fetchall():
-        pending = _get_pending_peer_labels('bulletins', row[5], peers)
-        bulletins.append((*row, pending))
+    if _core_sync_enabled('bulletins'):
+        bulletin_clause = _record_needs_peer_sync_clause('bulletins', 'b', 'unique_id')
+        c.execute(
+            f"SELECT id, board, sender_short_name, subject, deleted, unique_id FROM bulletins b "
+            f"WHERE deleted = 'N' AND {bulletin_clause} ORDER BY b.id",
+            ('bulletins',),
+        )
+        for row in c.fetchall():
+            pending = _get_pending_peer_labels('bulletins', row[5], peers)
+            bulletins.append((*row, pending))
 
-    c.execute(
-        f"SELECT id, sender_short_name, recipient, subject, unique_id FROM mail m "
-        f"WHERE {mail_clause} ORDER BY m.id",
-        ('mail',),
-    )
     mail_rows = []
-    for row in c.fetchall():
-        pending = _get_pending_peer_labels('mail', row[4], peers)
-        mail_rows.append((*row, pending))
+    if _core_sync_enabled('mail'):
+        mail_clause = _record_needs_peer_sync_clause('mail', 'm', 'unique_id')
+        c.execute(
+            f"SELECT id, sender_short_name, recipient, subject, unique_id FROM mail m "
+            f"WHERE {mail_clause} ORDER BY m.id",
+            ('mail',),
+        )
+        for row in c.fetchall():
+            pending = _get_pending_peer_labels('mail', row[4], peers)
+            mail_rows.append((*row, pending))
 
-    c.execute(
-        f"SELECT id, name, publish, unique_id FROM channels c "
-        f"WHERE publish = 'Y' AND deleted = 'N' AND {channel_clause} ORDER BY c.id",
-        ('channels',),
-    )
     channels = []
-    for row in c.fetchall():
-        pending = _get_pending_peer_labels('channels', row[3], peers)
-        channels.append((*row, pending))
+    if _core_sync_enabled('channels'):
+        channel_clause = _record_needs_peer_sync_clause('channels', 'c', 'unique_id')
+        c.execute(
+            f"SELECT id, name, publish, unique_id FROM channels c "
+            f"WHERE publish = 'Y' AND deleted = 'N' AND {channel_clause} ORDER BY c.id",
+            ('channels',),
+        )
+        for row in c.fetchall():
+            pending = _get_pending_peer_labels('channels', row[3], peers)
+            channels.append((*row, pending))
 
     return bulletins, mail_rows, channels
 
@@ -1607,7 +1618,7 @@ def add_channel(
 
 
 def sync_channel_record(unique_id, bbs_nodes, interface):
-    if interface is None:
+    if interface is None or not _core_sync_enabled('channels'):
         return
 
     conn = get_db_connection()
@@ -2144,6 +2155,9 @@ def _queue_pending_sync_delete(record_type, record_key):
 
 
 def sync_pending_deletes(sync_peers, interface):
+    if not _core_sync_enabled('mail'):
+        return
+
     conn = get_db_connection()
     c = conn.cursor()
     c.execute(
@@ -2195,7 +2209,8 @@ def delete_mail_by_admin(mail_id):
             ('mail', unique_id),
         )
         conn.commit()
-        _queue_pending_sync_delete('mail', unique_id)
+        if _core_sync_enabled('mail'):
+            _queue_pending_sync_delete('mail', unique_id)
         return True
     return False
 
@@ -2326,6 +2341,9 @@ def mark_channel_deleted(channel_id):
 
 
 def purge_deleted_channels(bbs_nodes, interface):
+    if not _core_sync_enabled('channels'):
+        return
+
     conn = get_db_connection()
     c = conn.cursor()
     c.execute(
@@ -2511,7 +2529,7 @@ def add_bulletin(board, sender_short_name, subject, content, bbs_nodes, interfac
 
 
 def sync_bulletin_record(unique_id, bbs_nodes, interface):
-    if interface is None:
+    if interface is None or not _core_sync_enabled('bulletins'):
         return
 
     conn = get_db_connection()
@@ -2772,6 +2790,8 @@ def delete_bulletin(bulletin_id, bbs_nodes, interface):
     from .urgent_alerts import clear_pending_urgent_alert
 
     clear_pending_urgent_alert(unique_id)
+    if not _core_sync_enabled('bulletins'):
+        return
     sync_peers = get_sync_peers_from_interface(interface, bbs_nodes)
     bulletin_peers = filter_peers_for_record_type(sync_peers, 'bulletins')
     if bulletin_peers and interface:
@@ -2832,6 +2852,9 @@ def is_sync_uuid(value):
 
 
 def purge_deleted_bulletins(bbs_nodes, interface):
+    if not _core_sync_enabled('bulletins'):
+        return
+
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT id, unique_id FROM bulletins WHERE deleted = 'Y' AND delete_reconcile = 'N'")
@@ -2916,7 +2939,7 @@ def add_mail(
 
 
 def sync_mail_record(unique_id, bbs_nodes, interface):
-    if interface is None:
+    if interface is None or not _core_sync_enabled('mail'):
         return
 
     conn = get_db_connection()
@@ -3015,11 +3038,14 @@ def delete_mail(unique_id, recipient_id, bbs_nodes, interface):
         )
         conn.commit()
         logging.info(f"Attempting to delete mail with unique_id: {unique_id} by {recipient_id}")
-        sync_peers = get_sync_peers_from_interface(interface, bbs_nodes)
-        mail_peers = filter_peers_for_record_type(sync_peers, 'mail')
-        if mail_peers:
-            send_delete_mail_to_bbs_nodes(unique_id, mail_peers, interface)
-        logging.info(f"Mail with unique_id: {unique_id} deleted and sync message sent.")
+        if _core_sync_enabled('mail'):
+            sync_peers = get_sync_peers_from_interface(interface, bbs_nodes)
+            mail_peers = filter_peers_for_record_type(sync_peers, 'mail')
+            if mail_peers:
+                send_delete_mail_to_bbs_nodes(unique_id, mail_peers, interface)
+            logging.info(f"Mail with unique_id: {unique_id} deleted and sync message sent.")
+        else:
+            logging.info(f"Mail with unique_id: {unique_id} deleted locally; mail sync disabled.")
     except Exception as e:
         logging.error(f"Error deleting mail with unique_id {unique_id}: {e}")
         raise

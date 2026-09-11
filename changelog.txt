@@ -16,6 +16,8 @@ Core Services (admin)
   - Settings stored in sys_config (bbs.core_bulletins, bbs.core_mail, bbs.core_channels)
   - Seeded from config.yml; missing keys added on upgrade (default enabled)
   - Admin main menu hides Bulletins / Channels / Mail entries when the service is off
+  - Disabled services skip inbound/outbound peer sync and scheduled purge for that type
+  - List Unsynced Data omits record types for disabled core services
 
 Sync (rsv1)
   - Bulletin ingest upserts by unique_id (tc2 remains insert-only)

@@ -106,6 +106,14 @@ def _legacy_pipe_sync_rejected(sender_node_id, record_type):
 
 
 def _inbound_sync_allowed(sender_node_id, interface, record_type):
+    from .core_services import is_core_sync_enabled
+
+    if not is_core_sync_enabled(record_type):
+        logging.info(
+            f"Ignoring inbound {record_type} sync from {sender_node_id}; "
+            f"core service disabled locally."
+        )
+        return False
     peer = get_sync_peer_by_bbs_node(sender_node_id, getattr(interface, 'sync_peers', None))
     if not peer_accepts_inbound_sync(peer, record_type):
         logging.info(

@@ -27,6 +27,12 @@ MAIN_MENU_HANDLER_KEYS = {
     "m": CORE_MAIL_KEY,
 }
 
+SYNC_RECORD_TYPES = {
+    "bulletins": CORE_BULLETINS_KEY,
+    "mail": CORE_MAIL_KEY,
+    "channels": CORE_CHANNELS_KEY,
+}
+
 
 def _core_service_bool(cfg_key, default=True):
     value = get_sys_config_value(CFG_SECTION, cfg_key)
@@ -45,6 +51,13 @@ def is_core_mail_enabled():
 
 def is_core_channels_enabled():
     return _core_service_bool(CORE_CHANNELS_KEY)
+
+
+def is_core_sync_enabled(record_type):
+    cfg_key = SYNC_RECORD_TYPES.get(record_type)
+    if cfg_key is None:
+        return True
+    return is_core_service_enabled(cfg_key)
 
 
 def is_core_service_enabled(cfg_key):
