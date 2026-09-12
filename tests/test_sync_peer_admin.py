@@ -103,6 +103,24 @@ class TestSyncPeerModuleListDisplay:
         assert "Node Info out=N" in line
         assert "in=N" not in line
 
+    def test_sync_peer_lines_shows_modules_configured_indicator(self, temp_db, monkeypatch):
+        admin_module = _load_admin_module(monkeypatch)
+        db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1", bbs_name="Peer A")
+        db_operations.add_sync_peer("!peer_b", sync_protocol="tc2", bbs_name="Peer B")
+
+        lines = admin_module._sync_peer_lines(db_operations.get_sync_peers())
+
+        assert any("Modules: N" in line for line in lines)
+
+        peer_id = db_operations._peer_id_for_bbs_node("!peer_a")
+        db_operations.set_sync_peer_module_flags(peer_id, 1, sync_out="Y", ingest_in="N")
+        lines = admin_module._sync_peer_lines(db_operations.get_sync_peers())
+
+        assert any("Peer A" in line for line in lines)
+        assert any("Modules: Y" in line for line in lines)
+        assert any("Peer B" in line for line in lines)
+        assert sum(1 for line in lines if "Modules: N" in line) >= 1
+
     def test_sync_peer_lines_includes_module_restriction(self, temp_db, monkeypatch):
         admin_module = _load_admin_module(monkeypatch)
         db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1", bbs_name="Peer A")

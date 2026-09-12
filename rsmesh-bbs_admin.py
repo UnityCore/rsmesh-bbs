@@ -1326,6 +1326,15 @@ def _sync_peer_module_restriction_line(peer, module_rows):
     return "  " + join_display_fields(f"Modules: {', '.join(parts)}")
 
 
+def _sync_peer_modules_configured(peer):
+    if len(peer) < 4:
+        return "N"
+    if (peer[3] or "").strip().lower() != "rsv1":
+        return "N"
+    flags = get_sync_peer_module_flags_for_peer(peer[0])
+    return "Y" if flags else "N"
+
+
 def _sync_peer_flag_lines(peer, last_heard_label=None):
     if len(peer) < 8:
         sync_bulletins, sync_mail, sync_channels = 'Y', 'Y', 'Y'
@@ -1339,6 +1348,7 @@ def _sync_peer_flag_lines(peer, last_heard_label=None):
     mail_line_fields = [
         f"Mail: {sync_mail or 'Y'}",
         f"Mesh nodes: {sync_mesh_nodes or 'N'}",
+        f"Modules: {_sync_peer_modules_configured(peer)}",
     ]
     if last_heard_label:
         mail_line_fields.append(f"Last heard: {last_heard_label}")

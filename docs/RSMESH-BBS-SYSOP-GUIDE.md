@@ -659,7 +659,7 @@ Configure remote BBS nodes for bulletin, mail, channel, and mesh-node synchroniz
 
 **Line 2:** `In: bulletins {Y/N}  channels {Y/N}  Out: bulletins {Y/N}  channels {Y/N}`
 
-**Line 3:** `Mail: {Y/N}  Mesh nodes: {Y/N}  Last heard: {relative time}`
+**Line 3:** `Mail: {Y/N}  Mesh nodes: {Y/N}  Modules: {Y/N}  Last heard: {relative time}` (`Modules: Y` when rsv1 per-module sync flags are stored; `N` otherwise)
 
 **Line 4 (optional, rsv1 only):** `Modules: {Name} out=N, {Name} in=N` — shown only when a module sync restriction is set for this peer (default allow omits the line).
 
