@@ -3,7 +3,6 @@ import time
 from pathlib import Path
 
 from rsmesh_bbs.sqlite_config import configure_sqlite_connection
-from rsmesh_bbs.utils import join_display_fields
 
 _MODULE_DIR = Path(__file__).resolve().parent
 DB_PATH = None
@@ -207,15 +206,26 @@ def list_unsynced_items():
     return [(entry["node_hex"], entry["board_name"]) for entry in list_entries()]
 
 
-def format_mesh_list_line(entry):
-    marker = "*" if entry["sync_interest"] == "Y" else " "
+def _list_source_label(entry):
+    return "LocalPost" if entry["is_local"] == "Y" else "RemotePost"
+
+
+def format_list_line(entry):
     location = entry["location"] or "-"
-    board_name = entry["board_name"]
-    if len(board_name) > 18:
-        board_name = board_name[:17] + "…"
-    if len(location) > 12:
-        location = location[:11] + "…"
-    return f"{entry['short_name']} {board_name} {location}{marker}"
+    sync_label = f"sync={entry['sync_interest']}"
+    parts = [
+        entry["short_name"],
+        entry["board_name"],
+        entry["node_hex"],
+        location,
+        sync_label,
+        _list_source_label(entry),
+    ]
+    return "  ".join(parts)
+
+
+def format_mesh_list_line(entry):
+    return format_list_line(entry)
 
 
 def format_mesh_detail(entry):
@@ -236,18 +246,4 @@ def format_admin_lines(sync_only=False):
     entries = list_entries(sync_only=sync_only)
     if not entries:
         return []
-    lines = []
-    for entry in entries:
-        fields = [
-            entry["short_name"],
-            entry["board_name"],
-            entry["node_hex"],
-        ]
-        if entry["location"]:
-            fields.append(entry["location"])
-        if entry["sync_interest"] == "Y":
-            fields.append("sync=Y")
-        if entry["is_local"] == "Y":
-            fields.append("local")
-        lines.append(join_display_fields(*fields))
-    return lines
+    return [format_list_line(entry) for entry in entries]

@@ -52,6 +52,30 @@ class TestBbsListStorage:
         assert len(sync_rows) == 1
         assert sync_rows[0]["board_name"] == "Alpha BBS"
 
+    def test_format_list_line(self, bbs_list_db):
+        local_entry = {
+            "short_name": "RSNA",
+            "board_name": "RSMesh BBS",
+            "node_hex": "!9e9d8704",
+            "location": "Waynedale/Fort Wayne",
+            "sync_interest": "Y",
+            "is_local": "Y",
+        }
+        remote_entry = {
+            "short_name": "RMT1",
+            "board_name": "Remote BBS",
+            "node_hex": "!remote01",
+            "location": "",
+            "sync_interest": "N",
+            "is_local": "N",
+        }
+        assert storage.format_list_line(local_entry) == (
+            "RSNA  RSMesh BBS  !9e9d8704  Waynedale/Fort Wayne  sync=Y  LocalPost"
+        )
+        assert storage.format_list_line(remote_entry) == (
+            "RMT1  Remote BBS  !remote01  -  sync=N  RemotePost"
+        )
+
     def test_wire_roundtrip(self, bbs_list_db):
         storage.upsert_entry(
             "Wire BBS",

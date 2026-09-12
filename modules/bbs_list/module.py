@@ -83,7 +83,7 @@ class Module:
 
         header = (
             f"= {ctx.module_name} =\n"
-            f"{title} ({len(entries)}). * = sync interest\n"
+            f"{title} ({len(entries)}).\n"
             "Enter node ID for details."
         )
         body_lines = [storage.format_mesh_list_line(entry) for entry in entries]
@@ -98,7 +98,7 @@ class Module:
             sender_id,
             f"= {ctx.module_name} =\n"
             "Directory of mesh BBS boards.\n"
-            "* marks boards interested in sync.\n"
+            "sync=Y marks sync interest; LocalPost/RemotePost = source.\n"
             "[A]ll list  [S]ync list  node ID view\n"
             "E[X]IT return to main menu",
         )
