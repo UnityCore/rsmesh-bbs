@@ -2071,7 +2071,10 @@ def run_module_admin(module_dir_name, back_label="Modules"):
 
 
 def toggle_suppress_modules_menu_entry():
-    toggle_suppress_modules_menu()
+    ok, message = toggle_suppress_modules_menu()
+    if not ok:
+        _finish_action_message(message, "Modules")
+        return False
     state = "on" if is_suppress_modules_menu() else "off"
     _finish_action_message(f"Suppress Modules submenu is now {state}.", "Modules")
 

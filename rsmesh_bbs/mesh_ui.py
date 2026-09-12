@@ -50,8 +50,32 @@ def set_suppress_modules_menu(enabled):
     request_main_menu_regeneration()
 
 
+def _enabled_modules_missing_from_main_menu():
+    on_main_ids = {row[0] for row in _modules_on_main_menu()}
+    return [row for row in _enabled_modules() if row[0] not in on_main_ids]
+
+
+def validate_enable_suppress_modules_menu():
+    """Return whether Suppress Modules Submenu can be turned on."""
+    missing = _enabled_modules_missing_from_main_menu()
+    if not missing:
+        return True, ""
+    names = ", ".join(row[1] for row in missing)
+    return False, (
+        "Cannot enable Suppress Modules Submenu: enabled module(s) are not on the main menu "
+        f"({names}). Set Show on main menu to Y for each enabled module, or disable them."
+    )
+
+
 def toggle_suppress_modules_menu():
-    set_suppress_modules_menu(not is_suppress_modules_menu())
+    if is_suppress_modules_menu():
+        set_suppress_modules_menu(False)
+        return True, ""
+    ok, message = validate_enable_suppress_modules_menu()
+    if not ok:
+        return False, message
+    set_suppress_modules_menu(True)
+    return True, ""
 
 
 def request_main_menu_regeneration():
@@ -120,12 +144,17 @@ def enabled_modules_for_submenu():
 
 
 def should_show_modules_entry():
+    """Whether M[o]dules appears on the mesh main menu.
+
+    Never shown when there are no enabled modules (suppress setting is ignored).
+    With suppress on, hidden when every enabled module is already on the main menu.
+    """
     enabled = _enabled_modules()
     if not enabled:
         return False
     if is_suppress_modules_menu():
         return not _all_enabled_modules_on_main_menu()
-    return bool(enabled_modules_for_submenu())
+    return True
 
 
 def get_main_menu_keys():

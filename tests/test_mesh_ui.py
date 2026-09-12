@@ -36,6 +36,14 @@ class TestMainMenuModules:
         self._disable_default_modules()
         body = mesh_ui.build_main_menu_body()
         assert "M[o]dules" not in body
+        assert mesh_ui.should_show_modules_entry() is False
+
+    def test_hides_modules_when_no_enabled_modules_even_with_suppress_on(self, temp_db):
+        _seed()
+        self._disable_default_modules()
+        mesh_ui.set_suppress_modules_menu(True)
+        assert mesh_ui.should_show_modules_entry() is False
+        assert "M[o]dules" not in mesh_ui.build_main_menu_body()
 
     def test_main_menu_visible_adds_module_key(self, temp_db, mesh_client):
         _seed()
@@ -96,6 +104,35 @@ class TestMainMenuModules:
         mesh_ui.set_suppress_modules_menu(True)
         assert mesh_ui.should_show_modules_entry() is True
         assert "M[o]dules" in mesh_ui.build_main_menu_body()
+
+    def test_validate_rejects_suppress_when_enabled_module_not_on_main_menu(self, temp_db):
+        _seed()
+        conn = db_operations.get_db_connection()
+        conn.execute(
+            "UPDATE modules SET enabled = 'Y', main_menu_visible = 'Y' "
+            "WHERE module_dir = 'fortune'"
+        )
+        conn.execute(
+            "UPDATE modules SET enabled = 'Y', main_menu_visible = 'N' "
+            "WHERE module_dir = 'node_info'"
+        )
+        conn.commit()
+        ok, message = mesh_ui.validate_enable_suppress_modules_menu()
+        assert ok is False
+        assert "Node Info" in message
+
+    def test_toggle_suppress_rejects_when_enabled_module_not_on_main_menu(self, temp_db):
+        _seed()
+        conn = db_operations.get_db_connection()
+        conn.execute(
+            "UPDATE modules SET enabled = 'Y', main_menu_visible = 'N' "
+            "WHERE module_dir = 'node_info'"
+        )
+        conn.commit()
+        ok, message = mesh_ui.toggle_suppress_modules_menu()
+        assert ok is False
+        assert mesh_ui.is_suppress_modules_menu() is False
+        assert "not on the main menu" in message.lower()
 
 
 class TestDeferredMainMenuRegeneration:

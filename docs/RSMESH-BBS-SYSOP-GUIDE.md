@@ -313,7 +313,7 @@ The server does not rebuild the option rows on every mesh request. It reads the 
 
 - **`[M]ail`** opens a second screen (mail submenu) with **`[R]ead Mail`**, **`[S]end Mail`**, and **`E[X]IT`**. `R` and `S` are not main-menu keys — they only apply after the user chooses Mail.
 - **`[B]ulletins`**, **`[M]ail`**, and **`[C]hannels`** are each removed from the main menu when the matching core service is off (**Administration → Core Services**). The freed main-menu letter can be assigned to an enabled module; see [Module menu letters (per-menu rules)](#module-menu-letters-per-menu-rules).
-- **M[o]dules** (`O`) is omitted when no enabled module needs the aggregator submenu (see [M[o]dules on the main menu](#modules-on-the-main-menu)).
+- **M[o]dules** (`O`) is omitted when there are no enabled modules, or when no enabled module needs the aggregator submenu (see [M[o]dules on the main menu](#modules-on-the-main-menu)).
 
 ### Operator customization
 
@@ -372,15 +372,21 @@ Each regeneration copies the current `main_menu.txt` to **`mesh_ui/main_menu.old
 
 ### M[o]dules on the main menu
 
+**No enabled modules** — M[o]dules is never shown on the main menu, regardless of the suppress toggle. There is nothing to list in an empty aggregator submenu.
+
 **Promote a module** — **Administration → Modules → Edit Module Flags** → **Show on main menu (Y/N)**. When `Y`, the module’s menu letter appears on the main menu; users can open it without going through M[o]dules.
 
-**Suppress Modules submenu** — **Administration → Modules → Suppress Modules Submenu**. Stored as `bbs.suppress_modules_menu` in `sys_config`. When suppress is **on**:
+**Suppress Modules submenu** — **Administration → Modules → Suppress Modules Submenu**. Stored as `bbs.suppress_modules_menu` in `sys_config`.
+
+When suppress is **off** (default), M[o]dules stays on the main menu and lists every enabled module, even when those modules also appear on the main menu. That is intentional: users can open a module from its main-menu letter or from M[o]dules. If you promote every **enabled** module to the main menu and do **not** want the redundant M[o]dules entry, turn suppress **on**.
+
+When suppress is **on**:
 
 - Modules already on the main menu are not listed again under M[o]dules.
-- M[o]dules is **hidden** when every **enabled** module is promoted to the main menu (disabled modules are ignored for this decision).
+- M[o]dules is **hidden** when every **enabled** module is on the main menu (disabled modules are ignored for this decision).
 - M[o]dules stays visible if any **enabled** module still needs the aggregator submenu.
 
-When suppress is **off**, M[o]dules lists all enabled modules even if they also appear on the main menu.
+The admin tool **refuses to turn suppress on** while any enabled module is not on the main menu. Those modules would only be reachable through M[o]dules; suppressing it would hide them from mesh users. Promote each enabled module (**Show on main menu** = `Y`) or disable it before enabling suppress.
 
 ## Shipped modules (mesh menus)
 
@@ -706,7 +712,7 @@ Select: `Enter module ID or X=cancel:`
 | `Schedule enabled (Y/N) [{current}]:` | Y/N |
 | `Show on main menu (Y/N) [{current}]:` | Y/N — promote this module’s menu letter to the mesh main menu |
 
-**Suppress Modules Submenu** toggles `bbs.suppress_modules_menu`. See [M[o]dules on the main menu](#modules-on-the-main-menu) for when M[o]dules is shown or hidden.
+**Suppress Modules Submenu** toggles `bbs.suppress_modules_menu`. Use **on** to drop the redundant M[o]dules entry when every enabled module is already on the main menu. The toggle is rejected if any enabled module is not promoted — see [M[o]dules on the main menu](#modules-on-the-main-menu).
 
 #### Module admin submenus
 
