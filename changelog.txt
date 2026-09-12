@@ -17,6 +17,8 @@ Mesh user interface
   - M[o]dules hidden when no enabled modules need the aggregator submenu
   - Invalid or oversized main_menu.txt falls back to auto-generated body (200-byte mesh limit)
   - Admin: Regenerate Main Menu; Edit Module Flags includes Show on main menu
+  - Admin: System Status [V]iew server log (tails admin.server_log_file; Ctrl-C returns to status)
+  - admin.server_log_file config for server file logging and admin log follow (all platforms)
   - Module menu_option reserved only for main-menu conflicts (O/X always; B/C/M when core service on); submenu keys are per-menu
   - Optional mail on main menu: Core Services -> Display Mail commands on Main Menu shows [R]ead Mail / [S]end Mail on the main menu and omits [M]ail (bbs.mail_commands_on_main_menu)
 

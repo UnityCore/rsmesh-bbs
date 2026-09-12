@@ -75,3 +75,13 @@ schedule:
   module_exec_minutes: 1
   sync_purge_minutes: 5
   bulletin_display_age_days: 30
+
+
+##########################
+####      Admin       ####
+##########################
+# server_log_file - server log file used for admin System Status [V]iew server log
+#   (relative paths are under the directory containing config.yml)
+
+admin:
+  server_log_file: rsmesh-bbs.log

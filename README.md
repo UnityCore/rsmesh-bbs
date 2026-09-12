@@ -181,11 +181,7 @@ sudo chown -R bbs:bbs /opt/rsmesh-bbs   # use your service account
 sudo systemctl restart rsmesh-bbs
 ```
 
-If the service fails to start, read the journal for the startup error message:
-
-```bash
-sudo journalctl -u rsmesh-bbs -n 50 --no-pager
-```
+If the service fails to start, check the server log file (default `rsmesh-bbs.log` next to `config.yml`) or use **System Status → [V]iew server log** in the admin tool. With systemd you can also use `sudo journalctl -u rsmesh-bbs -n 50 --no-pager` when stdout is still routed to the journal.
 
 Common causes after enabling the venv-based service:
 

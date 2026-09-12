@@ -118,7 +118,15 @@ def _pad_to_line(target_line, lines_used):
         console.print("\n" * padding, end="")
 
 
-def paginate_display(page_title, lines, *, empty_message="No data found.", select_prompt=None, select_empty_exits=False):
+def paginate_display(
+    page_title,
+    lines,
+    *,
+    empty_message="No data found.",
+    select_prompt=None,
+    select_empty_exits=False,
+    hotkeys=None,
+):
     back_footer = "Enter or X=back:"
     if not lines:
         clear_screen()
@@ -166,18 +174,23 @@ def paginate_display(page_title, lines, *, empty_message="No data found.", selec
             prompt = f"{page_info}  N=next  P=prev  {back_footer}"
 
         choice = input_bold(prompt).strip()
+        choice_key = choice.upper()
 
-        if choice.upper() == 'N':
+        if hotkeys and choice_key in hotkeys:
+            hotkeys[choice_key]()
+            continue
+
+        if choice_key == 'N':
             if page_index < len(pages) - 1:
                 page_index += 1
             continue
-        if choice.upper() == 'P':
+        if choice_key == 'P':
             if page_index > 0:
                 page_index -= 1
             continue
 
         if select_prompt:
-            if choice.upper() == 'X' or (select_empty_exits and not choice):
+            if choice_key == 'X' or (select_empty_exits and not choice):
                 clear_screen()
                 return len(page_lines), 'X'
             if choice:
@@ -185,7 +198,7 @@ def paginate_display(page_title, lines, *, empty_message="No data found.", selec
                 return len(page_lines), choice
             continue
 
-        if choice.upper() == 'X' or not choice:
+        if choice_key == 'X' or not choice:
             clear_screen()
             return False
         continue

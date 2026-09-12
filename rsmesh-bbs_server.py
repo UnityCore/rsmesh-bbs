@@ -55,6 +55,7 @@ from rsmesh_bbs.utils import (
 from rsmesh_bbs.urgent_alerts import drain_pending_urgent_alerts
 from rsmesh_bbs.message_processing import on_receive
 from rsmesh_bbs.node_resolution import scan_mesh_nodes_store
+from rsmesh_bbs.admin_journal import attach_server_file_logging
 from pubsub import pub
 
 # General logging
@@ -78,6 +79,9 @@ def main():
 
     initialize_database()
     ensure_sys_config_from_yaml(config_file)
+    log_file_path = attach_server_file_logging(config_file)
+    if log_file_path is not None:
+        logging.info("Server logging to %s", log_file_path)
     ensure_core_services_config(config_file)
     finalize_release_upgrade()
     import_tc2_sync_peers_from_ini()

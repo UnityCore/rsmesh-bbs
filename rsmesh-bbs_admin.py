@@ -101,6 +101,7 @@ from rsmesh_bbs.mesh_ui import (
     toggle_suppress_modules_menu,
 )
 from rsmesh_bbs import admin_ui
+from rsmesh_bbs.admin_journal import follow_server_log, server_log_view_available
 
 # Shared terminal layout and display helpers (core + module admin extensions)
 console = admin_ui.console
@@ -1983,8 +1984,22 @@ def _system_status_lines():
             lines.append(indent + line)
     return lines
 
+def _follow_server_log_from_status():
+    clear_screen()
+    ok, message = follow_server_log()
+    clear_screen()
+    if not ok and message:
+        _finish_action_message(message, "Server Log")
+        prompt_continue()
+
+
 def show_system_status():
-    paginate_display("System Status", _system_status_lines())
+    lines = _system_status_lines()
+    hotkeys = None
+    if server_log_view_available():
+        lines = lines + ["", f"{' ' * MENU_OPTION_INDENT}[V]iew server log (Ctrl-C to return)"]
+        hotkeys = {"V": _follow_server_log_from_status}
+    paginate_display("System Status", lines, hotkeys=hotkeys)
     return False
 
 def run_submenu(menu_name, options, back_label="Main Menu"):
