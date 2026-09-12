@@ -301,9 +301,10 @@ def _mesh_location_label(location):
 
 
 def format_list_line(entry):
-    """Admin list line: all fields, full location."""
+    """Admin list line: list ID, all fields, full location."""
     location = entry["location"] or "-"
     parts = [
+        str(entry["id"]),
         entry["short_name"],
         entry["board_name"],
         entry["node_hex"],

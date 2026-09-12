@@ -103,18 +103,25 @@ def register_this_bbs():
 
 
 def edit_entry():
-    rows = storage.list_entries()
-    if not rows:
-        admin_ui.paginate_display("BBS List : Edit Entry", [], empty_message="No BBS entries.")
+    result = admin_ui.paginate_display(
+        "BBS List : Edit Entry",
+        storage.format_admin_lines(sync_only=False),
+        empty_message="No BBS entries.",
+        select_prompt="Enter ID or X=back:",
+        select_empty_exits=True,
+    )
+    if result is False:
+        return False
+    _, entry_id = result
+    if str(entry_id).upper() == "X":
         return False
 
-    admin_ui.begin_form_screen("BBS List : Edit Entry")
-    entry_id = admin_ui.input_bold("Entry ID to edit: ").strip()
     entry = storage.get_entry_by_id(entry_id)
     if entry is None:
         admin_ui.finish_action_message("BBS entry not found.", "BBS List : Edit Entry")
         return
 
+    admin_ui.begin_form_screen("BBS List : Edit Entry")
     board_name = admin_ui.input_bold(f"Board name [{entry['board_name']}]: ").strip()
     short_name = admin_ui.input_bold(f"Short name [{entry['short_name']}]: ").strip()
     location = admin_ui.input_bold(f"Location [{entry['location'] or ''}]: ").strip()
@@ -141,8 +148,19 @@ def edit_entry():
 
 
 def delete_entry():
-    admin_ui.begin_form_screen("BBS List : Delete Entry")
-    entry_id = admin_ui.input_bold("Entry ID to delete: ").strip()
+    result = admin_ui.paginate_display(
+        "BBS List : Delete Entry",
+        storage.format_admin_lines(sync_only=False),
+        empty_message="No BBS entries.",
+        select_prompt="Enter ID or X=back:",
+        select_empty_exits=True,
+    )
+    if result is False:
+        return False
+    _, entry_id = result
+    if str(entry_id).upper() == "X":
+        return False
+
     entry = storage.get_entry_by_id(entry_id)
     if entry is None:
         admin_ui.finish_action_message("BBS entry not found.", "BBS List : Delete Entry")

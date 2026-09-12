@@ -72,10 +72,10 @@ class TestBbsListStorage:
             "is_local": "N",
         }
         assert storage.format_list_line(local_entry) == (
-            "RSNA  RSMesh BBS  !9e9d8704  Waynedale/Fort Wayne  sync=Y  local=Y"
+            "1  RSNA  RSMesh BBS  !9e9d8704  Waynedale/Fort Wayne  sync=Y  local=Y"
         )
         assert storage.format_list_line(remote_entry) == (
-            "RMT1  Remote BBS  !remote01  -  sync=N  local=N"
+            "2  RMT1  Remote BBS  !remote01  -  sync=N  local=N"
         )
 
     def test_format_mesh_list_line_truncates_location(self, bbs_list_db):
@@ -92,7 +92,7 @@ class TestBbsListStorage:
             "3  RSNA  RSMesh BBS  !9e9d8704  Waynedale/Fort… *"
         )
         assert storage.format_list_line(entry) == (
-            "RSNA  RSMesh BBS  !9e9d8704  Waynedale/Fort Wayne Indiana  sync=Y  local=Y"
+            "3  RSNA  RSMesh BBS  !9e9d8704  Waynedale/Fort Wayne Indiana  sync=Y  local=Y"
         )
 
     def test_get_entry_by_id(self, bbs_list_db):
