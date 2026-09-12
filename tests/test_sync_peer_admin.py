@@ -21,6 +21,9 @@ def _load_admin_module(monkeypatch):
 
 class TestRegisteredModuleSyncRows:
     def test_returns_empty_when_no_modules_register_sync(self, temp_db):
+        conn = db_operations.get_db_connection()
+        conn.execute("UPDATE modules SET enabled = 'N' WHERE module_dir = 'bbs_list'")
+        conn.commit()
         assert get_registered_module_sync_rows() == []
 
     def test_returns_registration_for_loaded_module(self, temp_db, monkeypatch):

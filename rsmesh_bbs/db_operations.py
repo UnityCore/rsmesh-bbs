@@ -1242,6 +1242,7 @@ DEFAULT_MODULES = (
     ('Node Info', 'node_info', 'I', 'Y', 'Y'),
     ('Example Hello', 'example_hello', 'E', 'N', 'N'),
     ('Fortune', 'fortune', 'F', 'Y', 'N'),
+    ('BBS List', 'bbs_list', 'L', 'Y', 'N'),
 )
 
 

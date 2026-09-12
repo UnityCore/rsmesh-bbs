@@ -11,7 +11,7 @@ Status summary (2026-09-12)
   - Mesh client virtual radio config: done (config_client.yml server section; sysop guide)
   - Module sync framework Phase A: done (registration API, inbound/outbound dispatch)
   - Module sync framework Phase B: done (per-peer flags, admin, list unsynced)
-  - Module sync framework Phase C: not started
+  - Module sync framework Phase C: done (bbs_list reference module)
   - Release 1.0 -> 1.1 migration: in progress (release_migration.py scaffold;
     database_version stamp, config.yml merge, legacy data detection, main menu regen)
   - Device Blacklist: not started (moved to 1.2 backlog below)
@@ -90,8 +90,8 @@ Status summary (2026-09-12)
       - B5 [DONE]: list_unsynced hook + List Unsynced Data Modules section
       - Module sync status API + Modules admin screen [DONE]:
         get_module_sync_status / sync_status_lines hook; splash Modules peer count
-    - Phase C [NOT STARTED]:
-      - First reference module using sync (proof-of-concept; not core Channels)
+    - Phase C [DONE]:
+      - modules/bbs_list: synced directory of mesh BBS boards (rsv1 BBSLIST wire type)
     - Bulletins, Mail, and Channels remain core sync types (tc2/rsv1 wire formats unchanged)
 
 TODO for Release 1.2

@@ -43,6 +43,10 @@ Module sync (Phase B5)
   - list_unsynced registration hook for module-owned unsynced records
   - List Unsynced Data includes a Modules section when hooks report pending peers
 
+Module sync (Phase C)
+  - BBS List module (bbs_list): directory of boards with sync interest flag
+  - rsv1 BBSLIST wire sync; mesh browse; SysAdmin add/edit/register this BBS
+
 Mesh client (rsmesh-bbs_client.py)
   - --verbose / -v: print (no reply) when the BBS sends no response (default silent)
   - config_client.yml server section: virtual_node_id, virtual_short_name, virtual_long_name

@@ -343,6 +343,7 @@ Not shown in the example (see `node_info` for these): `register_service` for oth
 
 - `modules/example_hello/` — minimal module, visit tracking, scheduled greetings via `enqueue_send`
 - `modules/fortune/` — random fortunes from `fortunes.txt` (TC²-style `?? fortune ??` decoration)
+- `modules/bbs_list/` — synced directory of mesh BBS boards (Phase C reference module using `register_sync`)
 - `modules/node_info/` — stats menus, bundled node list, sysadmin-only list, background scan/purge schedules
 
 ### Testing a new module
