@@ -246,7 +246,7 @@ class Module:
 | `wire_suffixes` | Short operation names; expanded to `{MODULE_DIR}_{SUFFIX}` on the wire |
 | `legacy_wire_types` | Optional deprecated inbound aliases; omit for new modules |
 | `on_inbound_rs` | Called for RS wire messages when the module is enabled |
-| `sync_pending` | Called from the background sync worker with all enabled peers |
+| `sync_pending` | Called from the background sync worker with all enabled peers (before the deferred mesh-nodes sync step) |
 | `list_unsynced` | Optional callback returning `(record_key, label)` pairs for admin **List Unsynced Data** |
 | `sync_status_lines` | Optional callback receiving `ModuleSyncStatus`; return custom lines for **Administration → Modules → Module Sync Status** |
 
@@ -390,7 +390,7 @@ Not shown in the example (see `node_info` for these): `register_service` for oth
 
 - `modules/example_hello/` — minimal module, visit tracking, scheduled greetings via `enqueue_send`
 - `modules/fortune/` — random fortunes from `fortunes.txt` (TC²-style `?? fortune ??` decoration)
-- `modules/bbs_list/` — synced directory of mesh BBS boards (Phase C reference module using `register_sync`)
+- `modules/bbs_list/` — synced directory of mesh BBS boards (Phase C reference module using `register_sync`); `sync_interest` is mesh metadata only (all entries sync outbound); admin list lines include numeric list ID; edit/delete use `paginate_display` with `select_prompt`
 - `modules/node_info/` — stats menus, bundled node list, sysadmin-only list, background scan/purge schedules
 
 ### Testing a new module

@@ -48,9 +48,17 @@ Module sync (Phase B5)
   - Admin splash and System Status show sync alert summary (RS version + module peer counts)
 
 Module sync (Phase C)
-  - BBS List module (bbs_list): directory of boards with sync interest flag
-  - rsv1 BBS_LIST_SYNC wire sync
-  - mesh browse; SysAdmin add/edit/register this BBS
+  - BBS List module (bbs_list): directory of boards with sync interest flag (mesh display only; all entries sync to peers)
+  - rsv1 BBS_LIST_SYNC wire sync with server log lines for send/receive
+  - Inbound wire updates ignored for local entries (is_local=Y); prevents false synced state
+  - Integer list IDs; separate admin vs mesh line formats
+  - mesh browse; SysAdmin add/edit/delete with paginated ID selection
+
+Mesh nodes sync (rsv1)
+  - Replaced single NODE messages with batched NODES wire type
+  - Packs multiple nodes per message (200-byte limit; CHUNK when larger)
+  - Dedupes duplicate node IDs per batch (newest last_heard wins)
+  - Deferred ~90 seconds after bulletins, mail, channels, and module sync each peer-sync cycle
 
 Module sync wire types
   - Modules register wire_suffixes; framework expands to {MODULE_DIR}_{SUFFIX}
@@ -90,7 +98,12 @@ Core Services (admin)
 Sync (rsv1)
   - Bulletin ingest upserts by unique_id (tc2 remains insert-only)
   - Pinned bulletins sync via rsv1 pin field
+  - Module sync inbound state documented (record_sync_peers marking rules)
   - Protocol differences documented in docs/RSMESH-BBS-DEVELOPER-GUIDE.md
+
+Admin UI
+  - begin_form_screen / finish_action_message flow for module and core form confirmations
+  - Developer guide documents admin_ui selectable list pattern for edit/delete flows
 
 Release upgrade (1.0 -> 1.1)
   - release_migration.py: prepare_release_upgrade, migrate_release_database,

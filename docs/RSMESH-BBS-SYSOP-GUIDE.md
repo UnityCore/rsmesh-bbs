@@ -232,6 +232,8 @@ Any of these can supply a hex node ID for delivery. The catalog is one helper am
 
 **Mesh nodes** is part of the core database and is always available. The server maintains it automatically from live mesh traffic (any packet the radio hears) and, when configured, from **rsv1** peer **Sync mesh nodes** ingest. Each row stores only what the BBS needs for day-to-day operation: hex node ID, short name, long name, and last heard. That minimal record supports mail recipient lookup, short-name resolution when the radio’s live node list is incomplete, and mesh-node sync between peers — **even when the Node Info module is disabled**.
 
+Between peers, mesh nodes sync as batched **`NODES`** messages (not one packet per node). The sync worker sends those batches about **90 seconds after** bulletins, mail, channels, and module sync finish each peer-sync cycle, so directory updates are less likely to crowd out other sync traffic on the mesh.
+
 **Node Info** is an **optional module** (enabled by default, but you can turn it off under **Administration → Modules**). It keeps a separate, richer telemetry database: SNR, RSSI, hop count, GPS coordinates, channel-quality estimates, and related fields gathered from overheard packets. Mesh users reach it from **M[o]dules** (`O` on the main menu) for node counts and statistics; sysadmins can list detailed rows. Think of Node Info as an **enhanced telemetry reference**, not a requirement for core BBS features.
 
 If Node Info is off, mail, sync, and short-name resolution still work through the attached radio’s live node list, the **mesh nodes** table, and the optional **node catalog**.
@@ -288,7 +290,7 @@ Background workers in the running server (intervals from `config.yml` `schedule`
 
 | Worker | Setting | Behavior |
 |--------|---------|----------|
-| Peer sync | `peer_sync_minutes` | Retries unsynced bulletins, mail, and published channels to eligible sync peers (skips types disabled under **Core Services**) |
+| Peer sync | `peer_sync_minutes` | Retries unsynced bulletins, mail, published channels, and enabled **module** records to eligible sync peers (skips types disabled under **Core Services**); then waits **90 seconds** and runs batched **mesh nodes** sync to rsv1 peers with **Sync mesh nodes** enabled |
 | Purge | `sync_purge_minutes` | Reloads peer/sysadmin config; purges soft-deleted bulletins/channels and pushes delete sync (skips types disabled under **Core Services**) |
 | Module schedule | `module_exec_minutes` | Runs enabled module scheduled tasks (Node Info scan/purge, etc.) |
 
@@ -408,9 +410,9 @@ Enable under **Administration → Modules**. By default, users open modules from
 | **Fortune** | `F` (default) | Shows a random fortune on entry; any message fetches another; `X` exits |
 | **Node Info** | (per `modules` table) | `[N]odes` counts by time window, `[H]ardware` model counts, `[R]oles` role counts; sysadmins also get `[L]ist Nodes` (detailed signal/GPS lines) |
 | **Example Hello** | (disabled by default) | Greets on entry; demonstrates visits DB and scheduled greetings |
-| **BBS List** | `L` (default) | Browse known mesh BBS boards; mesh lines start with list ID, short name, board name, node ID, and truncated location; `*` marks sync interest; enter list ID for details; `[A]ll` / `[S]ync` lists. Admin lists show full location plus `sync=Y/N` and `local=Y/N`. |
+| **BBS List** | `L` (default) | Browse known mesh BBS boards; mesh lines start with list ID, short name, board name, node ID, and truncated location; `*` marks sync interest (display only); enter list ID for details; `[A]ll` / `[S]ync` lists. All entries sync to peers regardless of sync interest. Admin lists start with list ID and show full location plus `sync=Y/N` and `local=Y/N`. |
 
-Fortune has no admin screen. Node Info admin is view-only (**List Node Info**). **BBS List** admin supports register-this-BBS, add/edit/delete entries, and sync-interested list. See [Module development](RSMESH-BBS-DEVELOPER-GUIDE.md#modules) in the Developer Guide.
+Fortune has no admin screen. Node Info admin is view-only (**List Node Info**). **BBS List** admin supports register-this-BBS, add/edit/delete entries, and sync-interested list — see [BBS List admin](#bbs-list) below. See also [Module development](RSMESH-BBS-DEVELOPER-GUIDE.md#modules) in the Developer Guide.
 
 ---
 
@@ -688,7 +690,7 @@ Module sync prompts appear only when the peer protocol is **`rsv1`** and at leas
 
 **Protocol behavior:**
 - **`tc2`** — TC²-compatible pipe-delimited sync (`BULLETIN|`, `MAIL|`, etc.). Maintains TC²-BBS-mesh conventions: bulletin sync is **create-only** (duplicate `unique_id` ingests are skipped; pin/edit updates are **not** sent). Mesh node sync is forced to **`N`**. Messages must fit in one 200-byte packet.
-- **`rsv1`** — RS wire format (`RS|1|TYPE|{json}`). Supports bulletin **upsert** by `unique_id` (edits and **Pinned** changes propagate), chunked oversized payloads, mesh node sync, and RS version negotiation. See [Sync wire formats](RSMESH-BBS-DEVELOPER-GUIDE.md#sync-wire-formats) and [rsv1 message examples](RSMESH-BBS-DEVELOPER-GUIDE.md#rsv1-sync-message-examples).
+- **`rsv1`** — RS wire format (`RS|1|TYPE|{json}`). Supports bulletin **upsert** by `unique_id` (edits and **Pinned** changes propagate), chunked oversized payloads, batched **mesh nodes** (`NODES`) sync, module sync wire types, and RS version negotiation. See [Sync wire formats](RSMESH-BBS-DEVELOPER-GUIDE.md#sync-wire-formats) and [rsv1 message examples](RSMESH-BBS-DEVELOPER-GUIDE.md#rsv1-sync-message-examples).
 
 Duplicate `bbs_node` values are rejected on add.
 
@@ -1004,7 +1006,7 @@ Import mode: Replace (`R`) or Append (`A`, default).
 
 ## Mesh Nodes
 
-Core **minimal node directory** in the main database (`mesh_nodes`): hex node ID, short name, long name, and last heard. The server populates it automatically from live mesh traffic and from **rsv1** peer sync when **Sync mesh nodes** is enabled. This store supports mail recipient lookup, short-name resolution, and mesh-node sync **without** requiring the optional **Node Info** module.
+Core **minimal node directory** in the main database (`mesh_nodes`): hex node ID, short name, long name, and last heard. The server populates it automatically from live mesh traffic and from **rsv1** peer sync when **Sync mesh nodes** is enabled. Peer sync delivers multiple nodes per **`NODES`** batch (see [Mesh nodes vs Node Info](#mesh-nodes-vs-node-info)). This store supports mail recipient lookup, short-name resolution, and mesh-node sync **without** requiring the optional **Node Info** module.
 
 Operators can also add, edit, import, export, or purge rows here. See [Mesh nodes vs Node Info](#mesh-nodes-vs-node-info).
 
@@ -1082,6 +1084,28 @@ Data comes from `modules/node_info/node_info.db` (not the main BBS database). Se
 
 Paginated, view-only.
 
+### BBS List
+
+**Title:** BBS List
+
+| Option | Action |
+|--------|--------|
+| `1` | List Entries |
+| `2` | List Sync Interested |
+| `3` | Register This BBS |
+| `4` | Add Entry |
+| `5` | Edit Entry |
+| `6` | Delete Entry |
+| `0` | Back to Modules |
+
+**List line format:** `{id}  {short}  {board name}  {node hex}  {location}  sync={Y/N}  local={Y/N}`
+
+**Sync interest (`sync=Y/N`):** mesh display only — the `[S]ync` list filter and `*` marker on mesh lines. **All entries** are still pushed to sync peers when module sync is enabled.
+
+**Edit / Delete:** shows the paginated entry list first; enter the **list ID** at the prompt (`Enter ID or X=back:`), then complete the form (edit) or confirm deletion.
+
+**Register This BBS** creates or updates the local board row (`local=Y`) and queues it for peer sync.
+
 ### Example Hello
 
 **Title:** Example Hello (only when module is enabled)
@@ -1115,7 +1139,7 @@ Shown on bulletin, mail, and channel list/detail views:
 | Protocol | Wire format | Bulletin updates | Pinned on wire | Mesh node sync |
 |----------|-------------|------------------|----------------|----------------|
 | `tc2` | Pipe-delimited (`BULLETIN|`, `MAIL|`, …) | Create-only (TC² standard) | No | Not supported |
-| `rsv1` | `RS\|1\|TYPE\|{json}` | Upsert by `unique_id` | Yes (`pin`) | Supported when enabled per peer |
+| `rsv1` | `RS\|1\|TYPE\|{json}` | Upsert by `unique_id` | Yes (`pin`) | Batched `NODES` when enabled per peer (~90s after other sync in each cycle) |
 
 See [Sync wire formats](RSMESH-BBS-DEVELOPER-GUIDE.md#sync-wire-formats) and [rsv1 message examples](RSMESH-BBS-DEVELOPER-GUIDE.md#rsv1-sync-message-examples) for the full comparison.
 
