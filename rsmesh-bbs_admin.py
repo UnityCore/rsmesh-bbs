@@ -1471,13 +1471,14 @@ def _edit_sys_config_value(page_title, cfg_section, cfg_key, cfg_value):
     begin_form_screen(page_title)
     print_bold(f"Key: {cfg_key}")
     new_value = input_bold(f"Value [{cfg_value}]: ").strip()
-    if not new_value:
-        _finish_cancelled("No changes made.", page_title)
+    if not new_value or new_value == cfg_value:
+        clear_screen()
         return cfg_value
     if update_sys_config_entry(cfg_section, cfg_key, new_value):
-        _finish_action_message(f"{cfg_key} updated.", page_title)
+        clear_screen()
         return new_value
     _finish_action_message("Configuration entry not found.", page_title)
+    prompt_continue()
     return cfg_value
 
 
