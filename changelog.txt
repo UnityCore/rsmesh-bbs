@@ -35,13 +35,17 @@ Module sync (Phase B1/B2)
 Module sync (Phase B3)
   - Admin Add/Edit Sync Peer prompts for per-module sync out and ingest in (rsv1 peers)
   - Lists only modules that register sync hooks at load time
+  - Enabled prompt is last on add/edit; module sync flags persist correctly
 
 Module sync (Phase B4)
   - List Sync Peers shows per-module sync restrictions for rsv1 peers (out=N / in=N only)
+  - List Sync Peers shows Modules: Y/N when any per-module sync flags are configured (rsv1)
 
 Module sync (Phase B5)
   - list_unsynced registration hook for module-owned unsynced records
   - List Unsynced Data includes a Modules section when hooks report pending peers
+  - get_module_sync_status / sync_status_lines hook for per-module sync status views
+  - Admin splash and System Status show sync alert summary (RS version + module peer counts)
 
 Module sync (Phase C)
   - BBS List module (bbs_list): directory of boards with sync interest flag
@@ -71,6 +75,7 @@ Admin System Configuration
   - Section menus for BBS, Interface, and Schedule with key = value rows
   - Edit value only; required keys from example_config.yml seeded on startup
   - Export writes schema-ordered config.yml; missing yaml keys merged from example defaults
+  - Edits return to the current section menu instead of the top-level list
 
 Core Services (admin)
   - Administration -> Core Services toggles for Bulletins, Mail, and Channels
@@ -80,6 +85,7 @@ Core Services (admin)
   - Admin main menu hides Bulletins / Channels / Mail entries when the service is off
   - Disabled services skip inbound/outbound peer sync and scheduled purge for that type
   - List Unsynced Data omits record types for disabled core services
+  - Admin splash and System Status show which core services are enabled
 
 Sync (rsv1)
   - Bulletin ingest upserts by unique_id (tc2 remains insert-only)
@@ -91,6 +97,8 @@ Release upgrade (1.0 -> 1.1)
     finalize_release_upgrade; stores bbs.database_version in sys_config
   - Server, admin, and client call the upgrade path on startup
   - Legacy installs with existing data trigger 1.1 schema completion and main menu regen
+  - TC2 and 1.0 upgrades share the same 1.1 schema completion step (ensure_tc2_upgrade_schema)
+  - docs/UPGRADING.md documents TC2, 1.0, and shared schema completion
 
 Documentation
   - Sysop guide: docs/RSMESH-BBS-SYSOP-GUIDE.md (renamed from README-ADMIN.md)
