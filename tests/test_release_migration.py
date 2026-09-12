@@ -6,6 +6,7 @@ from rsmesh_bbs import db_operations
 from rsmesh_bbs.release_migration import (
     RELEASE_1_0,
     RELEASE_1_1,
+    ensure_release_1_1_schema,
     finalize_release_upgrade,
     get_stored_database_version,
     migrate_release_database,
@@ -86,6 +87,52 @@ class TestReleaseMigration:
         config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
         assert config["bbs"]["core_bulletins"] is True
         assert config["bbs"]["mail_commands_on_main_menu"] is False
+
+    def test_migrate_1_0_to_1_1_adds_release_schema(self, temp_db):
+        conn = db_operations.get_db_connection()
+        c = conn.cursor()
+        c.execute("DROP TABLE IF EXISTS sync_peer_modules")
+        c.execute("DROP TABLE IF EXISTS modules")
+        c.execute(
+            """CREATE TABLE modules (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   module_name TEXT NOT NULL,
+                   module_dir TEXT NOT NULL UNIQUE,
+                   menu_option TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                   enabled TEXT NOT NULL DEFAULT 'Y',
+                   schedule_enabled TEXT NOT NULL DEFAULT 'N'
+               )"""
+        )
+        set_stored_database_version(c, RELEASE_1_0)
+        conn.commit()
+
+        assert migrate_release_database(c) is True
+        conn.commit()
+
+        module_columns = [
+            row[1] for row in c.execute("PRAGMA table_info(modules)").fetchall()
+        ]
+        assert "main_menu_visible" in module_columns
+        assert c.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sync_peer_modules'"
+        ).fetchone() is not None
+        assert get_stored_database_version(c) == RELEASE_1_1
+
+    def test_ensure_release_1_1_schema_is_idempotent(self, temp_db):
+        conn = db_operations.get_db_connection()
+        c = conn.cursor()
+        ensure_release_1_1_schema(c)
+        conn.commit()
+        module_columns = [
+            row[1] for row in c.execute("PRAGMA table_info(modules)").fetchall()
+        ]
+        assert "main_menu_visible" in module_columns
+
+        ensure_release_1_1_schema(c)
+        conn.commit()
+        assert module_columns == [
+            row[1] for row in c.execute("PRAGMA table_info(modules)").fetchall()
+        ]
 
     def test_finalize_release_upgrade_runs_after_legacy_migration(self, temp_db, monkeypatch):
         conn = db_operations.get_db_connection()

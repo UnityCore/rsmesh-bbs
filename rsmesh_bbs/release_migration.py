@@ -95,11 +95,10 @@ def set_stored_database_version(c, version):
 
 
 def ensure_release_1_1_schema(c):
-    """Idempotent 1.1 schema completion (also applied by the TC2 upgrade path)."""
-    from .tc2_migration import _create_rsmesh_support_tables, _upgrade_modules_schema
+    """Idempotent 1.1 schema completion (shared by TC2 and 1.0 upgrade paths)."""
+    from .tc2_migration import ensure_tc2_upgrade_schema
 
-    _upgrade_modules_schema(c)
-    _create_rsmesh_support_tables(c)
+    ensure_tc2_upgrade_schema(c)
 
 
 def _needs_1_0_to_1_1_migration(c, stored_version):
@@ -113,7 +112,15 @@ def _needs_1_0_to_1_1_migration(c, stored_version):
 
 
 def _migrate_1_0_to_1_1_database(c):
-    logging.info("Upgrading RSMesh-BBS database from release %s to %s.", RELEASE_1_0, RELEASE_1_1)
+    stored = get_stored_database_version(c)
+    if stored == RELEASE_1_0:
+        logging.info(
+            "Upgrading RSMesh-BBS database from release %s to %s.",
+            RELEASE_1_0,
+            RELEASE_1_1,
+        )
+    else:
+        logging.info("Completing RSMesh-BBS database schema for release %s.", RELEASE_1_1)
     ensure_release_1_1_schema(c)
     return True
 

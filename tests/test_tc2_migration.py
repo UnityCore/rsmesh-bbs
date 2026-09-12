@@ -1,6 +1,7 @@
 import yaml
 
 from rsmesh_bbs import db_operations
+from rsmesh_bbs.release_migration import RELEASE_1_1, get_stored_database_version
 from rsmesh_bbs.tc2_migration import (
     ensure_tc2_upgrade_schema,
     import_tc2_sync_peers_from_ini,
@@ -126,4 +127,33 @@ class TestTc2ConfigImport:
         ).fetchall()
         assert len(rows) == 2
         assert all(row == ("N", "N", "N", "N", "N", "N") for row in rows)
+
+
+class TestTc2ToReleaseMigration:
+    def test_initialize_database_stamps_release_version_for_tc2_schema(self, temp_db):
+        conn = db_operations.get_db_connection()
+        _create_tc2_mail_table(conn)
+        c = conn.cursor()
+        c.execute(
+            """CREATE TABLE IF NOT EXISTS bulletins (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   board TEXT NOT NULL,
+                   sender_short_name TEXT NOT NULL,
+                   date TEXT NOT NULL,
+                   subject TEXT NOT NULL,
+                   content TEXT NOT NULL,
+                   unique_id TEXT NOT NULL,
+                   deleted TEXT NOT NULL DEFAULT 'N',
+                   delete_reconcile TEXT NOT NULL DEFAULT 'N',
+                   synced TEXT NOT NULL DEFAULT 'Y'
+               )"""
+        )
+        conn.commit()
+
+        db_operations.initialize_database(quiet=True)
+
+        assert get_stored_database_version(c) == RELEASE_1_1
+        assert c.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sync_peer_modules'"
+        ).fetchone() is not None
 
