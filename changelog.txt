@@ -9,6 +9,7 @@ Mesh user interface
   - Read Mail and Send Mail moved under [M]ail submenu ([R] / [S])
   - Modules aggregator key changed from M to O (M[o]dules)
   - Main menu option rows cached in mesh_ui/main_menu.txt (title line built at display time)
+  - Startup preserves a valid custom main_menu.txt; auto-generates only when missing or invalid
   - Disabled core services are hidden from the mesh main menu; their keys are free for modules
   - Empty mail inbox returns to the mail submenu instead of the main menu
   - Per-module main_menu_visible flag promotes module keys to the main menu

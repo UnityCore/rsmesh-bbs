@@ -109,15 +109,31 @@ def defer_main_menu_regeneration():
             regenerate_main_menu_file()
 
 
-def ensure_menu_config():
-    """Seed main-menu sys_config keys and refresh the cached menu body.
+def _cached_main_menu_is_valid(board_name=None):
+    try:
+        if not MAIN_MENU_FILE.is_file():
+            return False
+        text = MAIN_MENU_FILE.read_text(encoding="utf-8")
+        return _validate_cached_main_menu_body(text, board_name=board_name)
+    except OSError:
+        return False
 
-    Called after startup config is loaded (ensure_core_services_config) — not from
-    initialize_database(). Runtime toggles use request_main_menu_regeneration().
+
+def ensure_main_menu_file():
+    """Create main_menu.txt when missing or invalid; preserve valid operator edits.
+
+    Called on startup (ensure_core_services_config). Runtime configuration changes
+    use request_main_menu_regeneration() instead.
     """
     if get_sys_config_value(CFG_SECTION, SUPPRESS_MODULES_MENU_KEY) is None:
         add_sys_config_entry(CFG_SECTION, SUPPRESS_MODULES_MENU_KEY, "false")
-    regenerate_main_menu_file()
+    if not _cached_main_menu_is_valid():
+        regenerate_main_menu_file()
+
+
+def ensure_menu_config():
+    """Backward-compatible alias for ensure_main_menu_file()."""
+    ensure_main_menu_file()
 
 
 def _enabled_modules():

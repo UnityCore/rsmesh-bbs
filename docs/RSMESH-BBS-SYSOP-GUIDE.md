@@ -369,7 +369,7 @@ When a core service is **off**, its main-menu entry is hidden and that letter ca
 |---------|-----------------------------------|
 | **Leaving Administration** | Once, after any changes in that session that affect the mesh menu (Core Services toggles, mail layout option, module flags, suppress setting) |
 | **Administration → Regenerate Main Menu** | Immediately on that action |
-| **Server or client startup** | Once, after configuration is loaded |
+| **Server or client startup** | Only when `main_menu.txt` is missing or invalid (oversized/empty); valid operator customizations are preserved |
 
 While you remain inside **Administration**, individual toggles update the database immediately but **do not** rewrite `main_menu.txt` until you back out to the admin main menu. That batches several changes into one rewrite and avoids overwriting `main_menu.old` repeatedly.
 

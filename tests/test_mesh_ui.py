@@ -13,6 +13,18 @@ def _seed():
 
 
 class TestMainMenuValidation:
+    def test_ensure_core_services_config_preserves_custom_menu(self, temp_db):
+        _seed()
+        mesh_ui.MAIN_MENU_FILE.write_text("CUSTOM MENU\n", encoding="utf-8")
+        ensure_core_services_config()
+        assert mesh_ui.MAIN_MENU_FILE.read_text(encoding="utf-8") == "CUSTOM MENU\n"
+
+    def test_ensure_main_menu_file_regenerates_invalid_cache(self, temp_db):
+        mesh_ui.MESH_UI_DIR.mkdir(parents=True, exist_ok=True)
+        mesh_ui.MAIN_MENU_FILE.write_text("X" * 300 + "\n", encoding="utf-8")
+        ensure_core_services_config()
+        assert mesh_ui.MAIN_MENU_FILE.read_text(encoding="utf-8") == mesh_ui.build_main_menu_body()
+
     def test_load_main_menu_body_rejects_oversized_cache(self, temp_db):
         _seed()
         mesh_ui.MAIN_MENU_FILE.write_text("X" * 300 + "\n", encoding="utf-8")

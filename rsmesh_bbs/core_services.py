@@ -135,6 +135,12 @@ def _regenerate_main_menu():
     request_main_menu_regeneration()
 
 
+def _ensure_main_menu_file():
+    from .mesh_ui import ensure_main_menu_file
+
+    ensure_main_menu_file()
+
+
 def set_core_service_enabled(cfg_key, enabled):
     if cfg_key not in CORE_SERVICE_KEYS:
         raise ValueError(f"Unknown core service key: {cfg_key}")
@@ -164,7 +170,7 @@ def toggle_mail_commands_on_main_menu():
 
 
 def ensure_core_services_config(config_file=None):
-    """Seed missing core-service keys in sys_config and config.yml, then refresh main menu."""
+    """Seed missing core-service keys in sys_config and config.yml; ensure main menu file exists."""
     config_file = config_file or DEFAULT_CONFIG_FILE
     path = Path(config_file)
 
@@ -189,4 +195,4 @@ def ensure_core_services_config(config_file=None):
             with path.open("w", encoding="utf-8") as handle:
                 yaml.dump(config, handle, default_flow_style=False, sort_keys=False)
 
-    _regenerate_main_menu()
+    _ensure_main_menu_file()
