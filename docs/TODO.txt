@@ -35,7 +35,7 @@ Status summary (2026-09-11)
     - Admin: Administration -> Regenerate Main Menu (manual rewrite of cache)
     - Operator edit of main_menu.txt with invalid/oversized fallback to auto-generated body
     - Module keys on main menu (per-module main_menu_visible on modules table)
-    - Validate menu_option does not collide with core keys B, C, M, O, X (R/S mail submenu only)
+    - Validate menu_option against main-menu reserved keys only (O/X always; B/C/M when core service on; submenu keys per-menu)
     - Suppress M[O]dules submenu (bbs.suppress_modules_menu)
     - Hide M[O]dules when no enabled modules need the aggregator submenu
     - Driven by enabled modules + suppress/hide Modules rules (not only core services)

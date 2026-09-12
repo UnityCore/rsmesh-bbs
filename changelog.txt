@@ -9,14 +9,14 @@ Mesh user interface
   - Read Mail and Send Mail moved under [M]ail submenu ([R] / [S])
   - Modules aggregator key changed from M to O (M[o]dules)
   - Main menu option rows cached in mesh_ui/main_menu.txt (title line built at display time)
-  - Disabled core service keys remain on the menu for optional module overrides
+  - Disabled core services are hidden from the mesh main menu; their keys are free for modules
   - Empty mail inbox returns to the mail submenu instead of the main menu
   - Per-module main_menu_visible flag promotes module keys to the main menu
   - bbs.suppress_modules_menu hides the M[o]dules aggregator when all enabled modules are promoted
   - M[o]dules hidden when no enabled modules need the aggregator submenu
   - Invalid or oversized main_menu.txt falls back to auto-generated body (200-byte mesh limit)
   - Admin: Regenerate Main Menu; Edit Module Flags includes Show on main menu
-  - Module menu_option validation rejects reserved keys B, C, M, O, X, R, S
+  - Module menu_option reserved only for main-menu conflicts (O/X always; B/C/M when core service on); submenu keys are per-menu
 
 Mesh client (rsmesh-bbs_client.py)
   - --verbose / -v: print (no reply) when the BBS sends no response (default silent)

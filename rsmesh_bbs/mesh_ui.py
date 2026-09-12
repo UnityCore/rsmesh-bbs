@@ -1,10 +1,11 @@
 """Mesh user interface assets (cached main menu body)."""
 
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
 
 from .config_init import get_board_name, parse_config_value
-from .core_services import is_core_mail_enabled
+from .core_services import CORE_MENU_LETTERS, is_core_service_enabled
 from .db_operations import add_sys_config_entry, get_modules, get_sys_config_value, update_sys_config_entry
 from .module_loader import APP_ROOT, ModuleManager
 from .utils import MESH_MESSAGE_MAX_SIZE
@@ -24,12 +25,13 @@ MENU_LABELS = {
     "X": "E[X]IT",
 }
 
-CORE_MENU_KEYS = frozenset({"B", "C", "M", "O", "X"})
-
 MAIL_SUBMENU_TEXT = "= Mail =\n[R]ead Mail  [S]end Mail"
 
 _WORST_CASE_MAIL_COUNT = 999
 _WORST_CASE_BOARD_NAME = "X" * 40
+
+_main_menu_regen_defer_depth = 0
+_main_menu_regen_pending = False
 
 
 def is_suppress_modules_menu():
@@ -45,15 +47,41 @@ def set_suppress_modules_menu(enabled):
         add_sys_config_entry(CFG_SECTION, SUPPRESS_MODULES_MENU_KEY, value)
     else:
         update_sys_config_entry(CFG_SECTION, SUPPRESS_MODULES_MENU_KEY, value)
-    regenerate_main_menu_file()
+    request_main_menu_regeneration()
 
 
 def toggle_suppress_modules_menu():
     set_suppress_modules_menu(not is_suppress_modules_menu())
 
 
+def request_main_menu_regeneration():
+    """Refresh the cached menu now, or after a deferred admin session ends."""
+    global _main_menu_regen_pending
+    if _main_menu_regen_defer_depth > 0:
+        _main_menu_regen_pending = True
+        return
+    regenerate_main_menu_file()
+
+
+@contextmanager
+def defer_main_menu_regeneration():
+    """Batch menu rewrites until the caller exits (e.g. Administration menu)."""
+    global _main_menu_regen_defer_depth, _main_menu_regen_pending
+    _main_menu_regen_defer_depth += 1
+    try:
+        yield
+    finally:
+        _main_menu_regen_defer_depth -= 1
+        if _main_menu_regen_defer_depth == 0 and _main_menu_regen_pending:
+            regenerate_main_menu_file()
+
+
 def ensure_menu_config():
-    """Seed main-menu sys_config keys and refresh the cached menu body."""
+    """Seed main-menu sys_config keys and refresh the cached menu body.
+
+    Called after startup config is loaded (ensure_core_services_config) — not from
+    initialize_database(). Runtime toggles use request_main_menu_regeneration().
+    """
     if get_sys_config_value(CFG_SECTION, SUPPRESS_MODULES_MENU_KEY) is None:
         add_sys_config_entry(CFG_SECTION, SUPPRESS_MODULES_MENU_KEY, "false")
     regenerate_main_menu_file()
@@ -63,11 +91,19 @@ def _enabled_modules():
     return [row for row in get_modules(enabled_only=True) if row[4] == "Y"]
 
 
-def _main_menu_modules():
-    return [
-        row for row in _enabled_modules()
-        if row[6] == "Y"
-    ]
+def _modules_on_main_menu():
+    """Enabled modules shown on the main menu (promoted or using a freed core letter)."""
+    rows = []
+    for row in _enabled_modules():
+        option = (row[3] or "").upper()
+        if row[6] == "Y":
+            rows.append(row)
+            continue
+        for letter, cfg_key in CORE_MENU_LETTERS:
+            if option == letter and not is_core_service_enabled(cfg_key):
+                rows.append(row)
+                break
+    return rows
 
 
 def _all_enabled_modules_on_main_menu():
@@ -93,12 +129,13 @@ def should_show_modules_entry():
 
 
 def get_main_menu_keys():
-    keys = set(CORE_MENU_KEYS)
-    if not is_core_mail_enabled():
-        keys.discard("M")
-    if not should_show_modules_entry():
-        keys.discard("O")
-    for row in _main_menu_modules():
+    keys = {"X"}
+    for letter, cfg_key in CORE_MENU_LETTERS:
+        if is_core_service_enabled(cfg_key):
+            keys.add(letter)
+    if should_show_modules_entry():
+        keys.add("O")
+    for row in _modules_on_main_menu():
         keys.add((row[3] or "").upper())
     return keys
 
@@ -127,33 +164,33 @@ def _format_two_column(labels):
 
 def build_main_menu_body():
     """Build cached main-menu option rows (no title line)."""
-    enabled_keys = get_main_menu_keys()
     row_groups = []
 
     core_row = []
-    for key in ("B", "C"):
-        if key in enabled_keys:
-            core_row.append(MENU_LABELS[key])
+    for letter, cfg_key in CORE_MENU_LETTERS:
+        if letter in ("B", "C") and is_core_service_enabled(cfg_key):
+            core_row.append(MENU_LABELS[letter])
     if core_row:
         row_groups.append(core_row)
 
     module_labels = [
         _format_module_label(row[1], row[3])
-        for row in sorted(_main_menu_modules(), key=lambda item: item[1].lower())
+        for row in sorted(_modules_on_main_menu(), key=lambda item: item[1].lower())
     ]
     while module_labels:
         row_groups.append(module_labels[:2])
         module_labels = module_labels[2:]
 
     service_row = []
-    for key in ("M", "O"):
-        if key in enabled_keys:
-            service_row.append(MENU_LABELS[key])
+    for letter, cfg_key in CORE_MENU_LETTERS:
+        if letter == "M" and is_core_service_enabled(cfg_key):
+            service_row.append(MENU_LABELS["M"])
+    if should_show_modules_entry():
+        service_row.append(MENU_LABELS["O"])
     if service_row:
         row_groups.append(service_row)
 
-    if "X" in enabled_keys:
-        row_groups.append([MENU_LABELS["X"]])
+    row_groups.append([MENU_LABELS["X"]])
 
     lines = []
     for group in row_groups:
@@ -203,6 +240,8 @@ def load_main_menu_body(board_name=None):
 
 def regenerate_main_menu_file():
     """Rewrite mesh_ui/main_menu.txt from current configuration."""
+    global _main_menu_regen_pending
+    _main_menu_regen_pending = False
     MESH_UI_DIR.mkdir(parents=True, exist_ok=True)
     body = build_main_menu_body()
     if MAIN_MENU_FILE.is_file():

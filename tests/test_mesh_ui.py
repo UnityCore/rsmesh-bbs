@@ -1,6 +1,10 @@
 from rsmesh_bbs import db_operations
 from rsmesh_bbs import mesh_ui
-from rsmesh_bbs.core_services import ensure_core_services_config
+from rsmesh_bbs.core_services import (
+    CORE_MAIL_KEY,
+    ensure_core_services_config,
+    set_core_service_enabled,
+)
 
 
 def _seed():
@@ -94,14 +98,51 @@ class TestMainMenuModules:
         assert "M[o]dules" in mesh_ui.build_main_menu_body()
 
 
+class TestDeferredMainMenuRegeneration:
+    def test_defers_regeneration_until_context_exits(self, temp_db):
+        _seed()
+        before = mesh_ui.MAIN_MENU_FILE.read_text(encoding="utf-8")
+        with mesh_ui.defer_main_menu_regeneration():
+            set_core_service_enabled(CORE_MAIL_KEY, False)
+            assert mesh_ui.MAIN_MENU_FILE.read_text(encoding="utf-8") == before
+            set_core_service_enabled(CORE_MAIL_KEY, True)
+            assert mesh_ui.MAIN_MENU_FILE.read_text(encoding="utf-8") == before
+        after = mesh_ui.MAIN_MENU_FILE.read_text(encoding="utf-8")
+        assert "[M]ail" in after
+        assert mesh_ui.MAIN_MENU_OLD_FILE.read_text(encoding="utf-8") == before
+
+    def test_immediate_regeneration_outside_defer(self, temp_db):
+        _seed()
+        before = mesh_ui.MAIN_MENU_FILE.read_text(encoding="utf-8")
+        set_core_service_enabled(CORE_MAIL_KEY, False)
+        after = mesh_ui.MAIN_MENU_FILE.read_text(encoding="utf-8")
+        assert after != before
+        assert "[M]ail" not in after
+
+
 class TestModuleMenuOptionValidation:
-    def test_reserved_core_keys_rejected(self):
+    def test_reserved_core_keys_rejected_when_service_enabled(self, temp_db):
+        _seed()
         ok, message = db_operations.validate_module_menu_option("B")
         assert ok is False
         assert "reserved" in message.lower()
 
-    def test_mail_submenu_keys_rejected(self):
-        ok, _message = db_operations.validate_module_menu_option("R")
+    def test_core_key_available_when_service_disabled(self, temp_db):
+        _seed()
+        set_core_service_enabled(CORE_MAIL_KEY, False)
+        ok, option = db_operations.validate_module_menu_option("M")
+        assert ok is True
+        assert option == "M"
+
+    def test_mail_submenu_keys_allowed_for_modules(self, temp_db):
+        _seed()
+        ok, option = db_operations.validate_module_menu_option("R")
+        assert ok is True
+        assert option == "R"
+
+    def test_mail_main_menu_key_rejected_when_mail_enabled(self, temp_db):
+        _seed()
+        ok, _message = db_operations.validate_module_menu_option("M")
         assert ok is False
 
     def test_valid_module_key_accepted(self):

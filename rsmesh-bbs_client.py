@@ -12,6 +12,7 @@ from rsmesh_bbs.config_init import (
     missing_client_setup_files,
     print_incomplete_setup_error,
 )
+from rsmesh_bbs.core_services import ensure_core_services_config
 from rsmesh_bbs.db_operations import initialize_database
 from rsmesh_bbs.mesh_client import BbsMeshClient, node_id_to_num
 from rsmesh_bbs.venv_guard import require_venv
@@ -105,6 +106,7 @@ def main() -> int:
         time.sleep = lambda *_args, **_kwargs: None
 
     initialize_database(quiet=True)
+    ensure_core_services_config(config_file)
     client = BbsMeshClient.create(
         client_node_id=args.node_id,
         client_node_num=args.node_num,

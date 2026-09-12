@@ -75,6 +75,7 @@ from rsmesh_bbs.core_services import (
     toggle_core_service,
 )
 from rsmesh_bbs.mesh_ui import (
+    defer_main_menu_regeneration,
     is_suppress_modules_menu,
     regenerate_main_menu_file,
     toggle_suppress_modules_menu,
@@ -1980,15 +1981,16 @@ def regenerate_main_menu_entry():
 
 
 def administration_menu():
-    run_submenu("Administration", [
-        ("System Configuration", lambda: sys_config_menu("Administration")),
-        ("Core Services", lambda: core_services_menu("Administration")),
-        ("Regenerate Main Menu", regenerate_main_menu_entry),
-        ("Sysadmin Nodes", lambda: sysadmin_nodes_menu("Administration")),
-        ("Sync Peers", lambda: sync_peers_menu("Administration")),
-        ("Modules", lambda: modules_admin_menu("Administration")),
-        ("Backup", backup_application_entry),
-    ])
+    with defer_main_menu_regeneration():
+        run_submenu("Administration", [
+            ("System Configuration", lambda: sys_config_menu("Administration")),
+            ("Core Services", lambda: core_services_menu("Administration")),
+            ("Regenerate Main Menu", regenerate_main_menu_entry),
+            ("Sysadmin Nodes", lambda: sysadmin_nodes_menu("Administration")),
+            ("Sync Peers", lambda: sync_peers_menu("Administration")),
+            ("Modules", lambda: modules_admin_menu("Administration")),
+            ("Backup", backup_application_entry),
+        ])
 
 
 def _module_lines(rows):

@@ -27,6 +27,12 @@ MAIN_MENU_HANDLER_KEYS = {
     "m": CORE_MAIL_KEY,
 }
 
+CORE_MENU_LETTERS = (
+    ("B", CORE_BULLETINS_KEY),
+    ("C", CORE_CHANNELS_KEY),
+    ("M", CORE_MAIL_KEY),
+)
+
 SYNC_RECORD_TYPES = {
     "bulletins": CORE_BULLETINS_KEY,
     "mail": CORE_MAIL_KEY,
@@ -74,10 +80,37 @@ def get_core_service_states():
     return {key: is_core_service_enabled(key) for key in CORE_SERVICE_KEYS}
 
 
-def _regenerate_main_menu():
-    from .mesh_ui import ensure_menu_config
+def is_core_menu_letter_enabled(letter):
+    letter = (letter or "").upper()
+    for menu_letter, cfg_key in CORE_MENU_LETTERS:
+        if menu_letter == letter:
+            return is_core_service_enabled(cfg_key)
+    return False
 
-    ensure_menu_config()
+
+def get_module_reserved_menu_options():
+    """Letters modules cannot use as menu_option (per-menu conflicts only).
+
+    The BBS routes keys by menu state — mail submenu R/S, bulletin G/I/N/U, and
+    module keys on the main or M[o]dules menus do not share a dispatcher.
+    Reserve only letters that appear on menus where users pick a module by key:
+    the main menu (and M[o]dules submenu for X exit). Submenu-only core keys are
+    not reserved here.
+    """
+    reserved = {"O", "X"}
+    if is_core_bulletins_enabled():
+        reserved.add("B")
+    if is_core_channels_enabled():
+        reserved.add("C")
+    if is_core_mail_enabled():
+        reserved.add("M")
+    return frozenset(reserved)
+
+
+def _regenerate_main_menu():
+    from .mesh_ui import request_main_menu_regeneration
+
+    request_main_menu_regeneration()
 
 
 def set_core_service_enabled(cfg_key, enabled):
@@ -96,7 +129,7 @@ def toggle_core_service(cfg_key):
 
 
 def ensure_core_services_config(config_file=None):
-    """Seed missing core-service keys in sys_config and config.yml (default enabled)."""
+    """Seed missing core-service keys in sys_config and config.yml, then refresh main menu."""
     config_file = config_file or DEFAULT_CONFIG_FILE
     path = Path(config_file)
 

@@ -20,6 +20,12 @@ Operator reference for running and configuring RSMesh BBS: the mesh client simul
   - [Staged publishing](#staged-publishing)
   - [Sync peer trust](#sync-peer-trust)
 - [Operator concepts](#operator-concepts)
+- [Mesh main menu (cached file)](#mesh-main-menu-cached-file)
+  - [Default layout](#default-layout)
+  - [Operator customization](#operator-customization)
+  - [Module menu letters (per-menu rules)](#module-menu-letters-per-menu-rules)
+  - [When the menu file is regenerated](#when-the-menu-file-is-regenerated)
+  - [M[o]dules on the main menu](#modules-on-the-main-menu)
 - [Shipped modules (mesh menus)](#shipped-modules-mesh-menus)
 - [Starting the admin tool](#starting-the-admin-tool)
 - [Navigation basics](#navigation-basics)
@@ -35,6 +41,7 @@ Operator reference for running and configuring RSMesh BBS: the mesh client simul
 - [System Status](#system-status)
 - [Administration](#administration)
   - [Core Services](#core-services)
+  - [Regenerate Main Menu](#regenerate-main-menu)
   - [System Configuration](#system-configuration)
     - [List Configuration](#list-configuration)
     - [Add Configuration Entry](#add-configuration-entry)
@@ -278,7 +285,7 @@ Background workers in the running server (intervals from `config.yml` `schedule`
 | Purge | `sync_purge_minutes` | Reloads peer/sysadmin config; purges soft-deleted bulletins/channels and pushes delete sync (skips types disabled under **Core Services**) |
 | Module schedule | `module_exec_minutes` | Runs enabled module scheduled tasks (Node Info scan/purge, etc.) |
 
-**Core Services** — Under **Administration → Core Services**, operators can enable or disable the built-in Bulletins, Mail, and Channels features. Settings live in `sys_config` (`bbs.core_bulletins`, `bbs.core_mail`, `bbs.core_channels`) and are seeded from `config.yml` on upgrade (default enabled). When a service is off, the admin tool hides its top-level menu, inbound peer sync for that record type is skipped, and background sync/purge workers omit that type. On the mesh, `[M]ail` is hidden when core mail is off; `[B]ulletins` and `[C]hannels` remain available for optional module overrides on those keys.
+**Core Services** — Under **Administration → Core Services**, operators can enable or disable the built-in Bulletins, Mail, and Channels features. Settings live in `sys_config` (`bbs.core_bulletins`, `bbs.core_mail`, `bbs.core_channels`) and are seeded from `config.yml` on upgrade (default enabled). When a service is off, the admin tool hides its top-level menu, inbound peer sync for that record type is skipped, and background sync/purge workers omit that type. On the mesh main menu, the matching option (`[B]ulletins`, `[M]ail`, or `[C]hannels`) is hidden and that letter becomes available for an enabled module.
 
 **Soft delete** — Admin **Delete Bulletins** / **Delete Channels** (and mesh sysadmin bulletin delete) set `deleted='Y'`. The purge worker removes them locally and syncs deletes to peers. **List Unsynced Data** in the admin tool shows records still pending peer sync.
 
@@ -286,9 +293,98 @@ Background workers in the running server (intervals from `config.yml` `schedule`
 
 **Sysconfig** — Many `config.yml` values are copied into the `sys_config` table on first run. The admin tool can edit them live; **Export Configuration to config.yml** writes the database values back to `config.yml`.
 
+## Mesh main menu (cached file)
+
+Mesh users see a two-part main menu on every `HELP` / return-to-menu:
+
+1. **Title line** — built at display time: `= {board_name} : {mail_count} Msg(s) =`
+2. **Option rows** — read from `mesh_ui/main_menu.txt` (no title line in the file)
+
+The server does not rebuild the option rows on every mesh request. It reads the cached file when valid, or falls back to an auto-generated body.
+
+### Default layout
+
+| Row | Keys |
+|-----|------|
+| 1 | `[B]ulletins` / `[C]hannels` |
+| 2+ | Enabled modules promoted to the main menu (see below), if any |
+| next | `[M]ail` / M[o]dules (`O`) when shown |
+| last | `E[X]IT` |
+
+- **`[M]ail`** opens a second screen (mail submenu) with **`[R]ead Mail`**, **`[S]end Mail`**, and **`E[X]IT`**. `R` and `S` are not main-menu keys — they only apply after the user chooses Mail.
+- **`[B]ulletins`**, **`[M]ail`**, and **`[C]hannels`** are each removed from the main menu when the matching core service is off (**Administration → Core Services**). The freed main-menu letter can be assigned to an enabled module; see [Module menu letters (per-menu rules)](#module-menu-letters-per-menu-rules).
+- **M[o]dules** (`O`) is omitted when no enabled module needs the aggregator submenu (see [M[o]dules on the main menu](#modules-on-the-main-menu)).
+
+### Operator customization
+
+You may edit `mesh_ui/main_menu.txt` directly for branding or layout. Treat it as a **display-only** override: menu keys and routing still come from core services, the `modules` table, and code.
+
+Constraints:
+
+- The title line plus file body must fit in a **single 200-byte** mesh packet. If the file is empty, invalid, or too large, the server ignores it and shows an auto-generated body instead.
+- Module `menu_option` letters must not collide with keys on menus where users select a module. See [Module menu letters (per-menu rules)](#module-menu-letters-per-menu-rules).
+
+### Module menu letters (per-menu rules)
+
+Each module has a one-letter **`menu_option`** in the `modules` table. The BBS routes keys based on **which menu the user is in** (main menu, mail submenu, M[o]dules submenu, bulletin boards, and so on). A letter used in one menu does **not** block modules from using the same letter on a different menu.
+
+Module `menu_option` validation only checks menus where a module can be chosen by letter: the **main menu** and the **M[o]dules** submenu.
+
+**Reserved on the main menu** (modules cannot use these letters)
+
+| Letter | Used for |
+|--------|----------|
+| `O` | M[o]dules |
+| `X` | E[X]IT |
+
+**Also reserved on the main menu while the matching core service is enabled**
+
+| Core service | Main-menu letter | Free for modules when service is OFF |
+|--------------|------------------|--------------------------------------|
+| Bulletins | `B` | `B` |
+| Channels | `C` | `C` |
+| Mail | `M` only | `M` |
+
+When a core service is **off**, its main-menu entry is hidden and that letter can be assigned to an enabled module. An enabled module using a freed `B`, `C`, or `M` appears on the main menu automatically (no **Show on main menu** needed).
+
+**Not reserved for modules** (different menu — no conflict)
+
+| Menu | Core keys | Available to modules? |
+|------|-----------|------------------------|
+| Mail submenu (after `M`) | `R`, `S`, `X` | Yes — `R` and `S` may be module letters even when Mail is on |
+| Bulletin boards (after `B`) | `G`, `I`, `N`, `U`, `X` | Yes — e.g. a module may use `G` while Bulletins is on |
+| Channel directory (after `C`) | `V`, `P`, `X` | Yes |
+| M[o]dules submenu | module letters, `X` | `X` is reserved (exit); other letters are module slots |
+
+**Mail example:** With Mail **enabled**, `M` is reserved on the main menu. `R` and `S` are only used on the mail submenu after the user presses `M`, so a module may use `R` or `S` on the main menu or under M[o]dules without conflicting. With Mail **disabled**, `M` is also available for modules.
+
+### When the menu file is regenerated
+
+| Trigger | When `main_menu.txt` is rewritten |
+|---------|-----------------------------------|
+| **Leaving Administration** | Once, after any changes in that session that affect the mesh menu (Core Services toggles, module flags, suppress setting) |
+| **Administration → Regenerate Main Menu** | Immediately on that action |
+| **Server or client startup** | Once, after configuration is loaded |
+
+While you remain inside **Administration**, individual toggles update the database immediately but **do not** rewrite `main_menu.txt` until you back out to the admin main menu. That batches several changes into one rewrite and avoids overwriting `main_menu.old` repeatedly.
+
+Each regeneration copies the current `main_menu.txt` to **`mesh_ui/main_menu.old`** before writing the new body. If you had a custom menu file, `.old` keeps that previous version (not intermediate drafts from toggling inside Administration).
+
+### M[o]dules on the main menu
+
+**Promote a module** — **Administration → Modules → Edit Module Flags** → **Show on main menu (Y/N)**. When `Y`, the module’s menu letter appears on the main menu; users can open it without going through M[o]dules.
+
+**Suppress Modules submenu** — **Administration → Modules → Suppress Modules Submenu**. Stored as `bbs.suppress_modules_menu` in `sys_config`. When suppress is **on**:
+
+- Modules already on the main menu are not listed again under M[o]dules.
+- M[o]dules is **hidden** when every **enabled** module is promoted to the main menu (disabled modules are ignored for this decision).
+- M[o]dules stays visible if any **enabled** module still needs the aggregator submenu.
+
+When suppress is **off**, M[o]dules lists all enabled modules even if they also appear on the main menu.
+
 ## Shipped modules (mesh menus)
 
-Enable under **Administration → Modules**. Users open them from **M[o]dules** (`O`) on the main menu.
+Enable under **Administration → Modules**. By default, users open modules from **M[o]dules** (`O`) on the main menu. Set **Show on main menu** to `Y` on a module to expose its menu letter on the top-level menu instead.
 
 | Module | Menu option | Mesh actions |
 |--------|-------------|--------------|
@@ -417,13 +513,14 @@ Paginated view-only. Use `N` / `P` to move between pages, Enter or `X` to return
 |--------|---------|
 | `1` | System Configuration |
 | `2` | Core Services |
-| `3` | Sysadmin Nodes |
-| `4` | Sync Peers |
-| `5` | Modules |
-| `6` | Backup |
+| `3` | Regenerate Main Menu |
+| `4` | Sysadmin Nodes |
+| `5` | Sync Peers |
+| `6` | Modules |
+| `7` | Backup |
 | `0` | Back to Main Menu |
 
-Changes to sync peers and sysadmin nodes are picked up by a running BBS server on the next mesh message or background worker cycle. Core Services toggles take effect immediately for mesh menus, admin menus, and background sync/purge workers.
+Changes to sync peers and sysadmin nodes are picked up by a running BBS server on the next mesh message or background worker cycle. Core Services toggles take effect immediately for admin menus and background sync/purge workers; the cached mesh main menu file is updated when you **leave Administration** (see [Mesh main menu (cached file)](#mesh-main-menu-cached-file)).
 
 ### Core Services
 
@@ -445,9 +542,13 @@ When a service is disabled:
 - Background peer sync, outbound sync, and purge workers omit that type.
 - **List Unsynced Data** omits records for that type.
 
-On the mesh main menu, `[M]ail` is hidden when core mail is off. `[B]ulletins` and `[C]hannels` stay on the menu so an enabled module can register the same menu letter for its own feature.
+On the mesh main menu, `[B]ulletins`, `[M]ail`, and `[C]hannels` are each hidden when the matching core service is off. The freed main-menu letter (`B`, `C`, or `M`) becomes available for modules (see [Module menu letters (per-menu rules)](#module-menu-letters-per-menu-rules)).
 
-Toggling a service regenerates `mesh_ui/main_menu.txt` (cached mesh menu body).
+Toggling a service does not rewrite `mesh_ui/main_menu.txt` on each keypress; the cached mesh menu body is regenerated once when you leave **Administration**.
+
+### Regenerate Main Menu
+
+Rewrites `mesh_ui/main_menu.txt` from the current configuration **immediately**, copying the previous file to `mesh_ui/main_menu.old` first. Use this after editing the menu file by hand, or to force a fresh auto-generated body without changing other settings.
 
 ### System Configuration
 
@@ -575,13 +676,14 @@ Each entry shows ID, key fields, sync status (`pending sync` or `pending delete 
 |--------|--------|
 | `1` | List Modules |
 | `2` | Edit Module Flags |
-| `3+` | Dynamic entries for enabled modules with an admin screen |
+| `3` | Suppress Modules Submenu (On/Off) |
+| `4+` | Dynamic entries for enabled modules with an admin screen |
 | `0` | Back |
 
 #### List Modules — per module (2 lines)
 
 - `ID: {id}  Name: {name}  Menu: {menu_option}`
-- `Dir: {dir}  Enabled: {Y/N}  Schedule: {Y/N}`
+- `Dir: {dir}  Enabled: {Y/N}  Schedule: {Y/N}  Main Menu: {Y/N}`
 
 Default registered modules:
 
@@ -601,6 +703,9 @@ Select: `Enter module ID or X=cancel:`
 |--------|-------|
 | `Enabled (Y/N) [{current}]:` | Y/N |
 | `Schedule enabled (Y/N) [{current}]:` | Y/N |
+| `Show on main menu (Y/N) [{current}]:` | Y/N — promote this module’s menu letter to the mesh main menu |
+
+**Suppress Modules Submenu** toggles `bbs.suppress_modules_menu`. See [M[o]dules on the main menu](#modules-on-the-main-menu) for when M[o]dules is shown or hidden.
 
 #### Module admin submenus
 
@@ -1012,16 +1117,18 @@ Splash Screen
     ├── 2. Administration
     │   ├── 1. System Configuration
     │   ├── 2. Core Services
-    │   ├── 3. Sysadmin Nodes
-    │   ├── 4. Sync Peers
-    │   ├── 5. Modules
+    │   ├── 3. Regenerate Main Menu
+    │   ├── 4. Sysadmin Nodes
+    │   ├── 5. Sync Peers
+    │   ├── 6. Modules
+    │   │   ├── Suppress Modules Submenu
     │   │   ├── [Node Info] → List Node Info
     │   │   └── [Example Hello] → List Visits (if enabled)
-    │   └── 6. Backup
+    │   └── 7. Backup
     ├── 3–5. Bulletins / Channels / Mail (when core service enabled)
     ├── Node Catalog
     ├── Mesh Nodes
     └── 0. Exit
 ```
 
-Mesh main menu (separate from the admin tool): `[B]ulletins` / `[C]hannels`, `[M]ail` / M[o]dules (`O`), `E[X]IT`. Mail opens a submenu with `[R]ead Mail` and `[S]end Mail`. See the [User Guide](RSMESH-BBS-USER-GUIDE.md).
+Mesh main menu (separate from the admin tool): title line plus cached `mesh_ui/main_menu.txt`. Default body: `[B]ulletins` / `[C]hannels`, `[M]ail` / M[o]dules (`O`), `E[X]IT`; mail submenu `[R]` / `[S]`. See [Mesh main menu (cached file)](#mesh-main-menu-cached-file) and the [User Guide](RSMESH-BBS-USER-GUIDE.md).

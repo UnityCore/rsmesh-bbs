@@ -68,7 +68,21 @@ class TestMeshClientCoreServices:
         assert "Bulletins are not available." not in joined
         assert "[G]eneral" not in joined
         menu = mesh_client.send_joined("?")
-        assert "[B]ulletins" in menu
+        assert "[B]ulletins" not in menu
+
+    def test_disabled_bulletins_shows_module_on_freed_key(self, mesh_client, temp_db):
+        conn = db_operations.get_db_connection()
+        conn.execute(
+            "UPDATE modules SET enabled = 'Y', menu_option = 'B' WHERE module_dir = 'example_hello'"
+        )
+        conn.commit()
+        mesh_client.interface.module_manager.load_modules(mesh_client.interface)
+
+        _seed_core_services()
+        set_core_service_enabled(CORE_BULLETINS_KEY, False)
+        menu = mesh_client.send_joined("?")
+        assert "[B]ulletins" not in menu
+        assert "Example Hello" in menu or "[B]" in menu
 
     def test_disabled_bulletins_routes_to_module(self, mesh_client, temp_db):
         conn = db_operations.get_db_connection()
@@ -91,6 +105,8 @@ class TestMeshClientCoreServices:
         joined = "\n".join(replies)
         assert "Channels are not available." not in joined
         assert "Select channel number" not in joined
+        menu = mesh_client.send_joined("?")
+        assert "[C]hannels" not in menu
 
     def test_disabled_mail_hides_mail_submenu(self, mesh_client, temp_db):
         _seed_core_services()

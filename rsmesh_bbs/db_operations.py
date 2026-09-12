@@ -612,9 +612,6 @@ def initialize_database(quiet=False):
     _ensure_default_modules(c)
     _ensure_database_indexes(c)
     conn.commit()
-    from .mesh_ui import ensure_menu_config
-
-    ensure_menu_config()
     if not quiet:
         print("Database schema initialized.")
 
@@ -1104,9 +1101,6 @@ def _ensure_default_modules(c):
     )
 
 
-RESERVED_MODULE_MENU_OPTIONS = frozenset({"B", "C", "M", "O", "X", "R", "S"})
-
-
 def format_module_menu_option(menu_option):
     text = (menu_option or '').strip()
     if len(text) == 1 and text.isalpha():
@@ -1119,7 +1113,9 @@ def validate_module_menu_option(menu_option):
     option = format_module_menu_option(menu_option)
     if len(option) != 1 or not option.isalpha():
         return False, "Menu option must be a single letter."
-    if option.upper() in RESERVED_MODULE_MENU_OPTIONS:
+    from .core_services import get_module_reserved_menu_options
+
+    if option.upper() in get_module_reserved_menu_options():
         return False, f"Menu option {option} is reserved for core menus."
     return True, option
 
@@ -1209,9 +1205,9 @@ def update_module_flags(
         )
     conn.commit()
     if any(value is not None for value in (enabled, schedule_enabled, main_menu_visible)):
-        from .mesh_ui import regenerate_main_menu_file
+        from .mesh_ui import request_main_menu_regeneration
 
-        regenerate_main_menu_file()
+        request_main_menu_regeneration()
     return True
 
 
