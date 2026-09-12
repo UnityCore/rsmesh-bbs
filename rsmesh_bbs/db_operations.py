@@ -105,7 +105,7 @@ def get_sync_peer_module_flags(peer_id, module_id):
     return _normalize_sync_flag(row[0]), _normalize_sync_flag(row[1])
 
 
-def set_sync_peer_module_flags(peer_id, module_id, sync_out='Y', ingest_in='Y'):
+def set_sync_peer_module_flags(peer_id, module_id, sync_out='Y', ingest_in='Y', persist=False):
     try:
         peer_id = int(peer_id)
         module_id = int(module_id)
@@ -113,7 +113,7 @@ def set_sync_peer_module_flags(peer_id, module_id, sync_out='Y', ingest_in='Y'):
         return False
     sync_out = _normalize_sync_flag(sync_out)
     ingest_in = _normalize_sync_flag(ingest_in)
-    if sync_out == 'Y' and ingest_in == 'Y':
+    if sync_out == 'Y' and ingest_in == 'Y' and not persist:
         return delete_sync_peer_module_flags(peer_id, module_id)
     conn = get_db_connection()
     c = conn.cursor()

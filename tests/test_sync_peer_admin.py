@@ -73,6 +73,29 @@ class TestSyncPeerModuleAdminPrompt:
 
         assert db_operations.get_sync_peer_module_flags(peer_id, 1) == ("N", "Y")
 
+    def test_prompt_persists_allow_all_module_flags(self, temp_db, monkeypatch):
+        admin_module = _load_admin_module(monkeypatch)
+        db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1")
+        peer_id = db_operations._peer_id_for_bbs_node("!peer_a")
+
+        manager = ModuleManager()
+        manager.register_sync(
+            1,
+            ModuleSyncRegistration(module_id=1, record_type="module:test"),
+        )
+        monkeypatch.setattr(
+            admin_module,
+            "get_registered_module_sync_rows",
+            lambda: [(manager.get_sync_registrations()[0], db_operations.get_module_by_id(1))],
+        )
+        inputs = iter(["", ""])
+        monkeypatch.setattr(admin_module, "input_bold", lambda _prompt: next(inputs))
+
+        admin_module._prompt_sync_peer_module_flags(peer_id, "rsv1")
+
+        assert db_operations.get_sync_peer_module_flags(peer_id, 1) == ("Y", "Y")
+        assert db_operations.get_sync_peer_module_flags_for_peer(peer_id) == {1: ("Y", "Y")}
+
 
 class TestSyncPeerModuleListDisplay:
     def test_restriction_line_omitted_when_all_allowed(self, temp_db, monkeypatch):
@@ -113,7 +136,9 @@ class TestSyncPeerModuleListDisplay:
         assert any("Modules: N" in line for line in lines)
 
         peer_id = db_operations._peer_id_for_bbs_node("!peer_a")
-        db_operations.set_sync_peer_module_flags(peer_id, 1, sync_out="Y", ingest_in="N")
+        db_operations.set_sync_peer_module_flags(
+            peer_id, 1, sync_out="Y", ingest_in="Y", persist=True,
+        )
         lines = admin_module._sync_peer_lines(db_operations.get_sync_peers())
 
         assert any("Peer A" in line for line in lines)

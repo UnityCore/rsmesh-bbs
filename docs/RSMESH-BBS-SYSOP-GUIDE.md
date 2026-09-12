@@ -678,11 +678,11 @@ RS version alerts appear when a peer sends a sync wire version that does not mat
 | `Sync mesh nodes out/in (Y/N) [Y]:` | Y | **Only for `rsv1`** — mesh node directory sync |
 | `Ingest bulletins in (Y/N) [Y]:` | Y | Accept bulletins from this peer |
 | `Ingest channels in (Y/N) [Y]:` | Y | Accept channel rows from this peer (always ingested as unpublished) |
-| `Enabled (Y/N) [Y]:` | Y | Master on/off for this peer; **`N`** skips all outbound and inbound sync |
 | `{Module name} sync out (Y/N) [Y]:` | Y | **rsv1 only** — send module sync to this peer (one prompt per module that registers sync) |
 | `{Module name} ingest in (Y/N) [Y]:` | Y | **rsv1 only** — accept module sync from this peer |
+| `Enabled (Y/N) [Y]:` | Y | **Last prompt** — master on/off for this peer; **`N`** skips all outbound and inbound sync |
 
-Module sync prompts appear only when the peer protocol is **`rsv1`** and at least one enabled module registers sync hooks. If both flags are left at **`Y`**, no per-peer row is stored (default allow). **`tc2`** peers show `Module sync: N/A (rsv1 only).`
+Module sync prompts appear only when the peer protocol is **`rsv1`** and at least one enabled module registers sync hooks. Answering those prompts stores per-peer module rows (including **`Y`/`Y`** allow-all); **`Modules: Y`** on list lines reflects stored rows. **`tc2`** peers show `Module sync: N/A (rsv1 only).`
 
 **Protocol behavior:**
 - **`tc2`** — TC²-compatible pipe-delimited sync (`BULLETIN|`, `MAIL|`, etc.). Maintains TC²-BBS-mesh conventions: bulletin sync is **create-only** (duplicate `unique_id` ingests are skipped; pin/edit updates are **not** sent). Mesh node sync is forced to **`N`**. Messages must fit in one 200-byte packet.

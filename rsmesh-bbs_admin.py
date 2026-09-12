@@ -1295,7 +1295,7 @@ def _prompt_sync_peer_module_flags(peer_id, sync_protocol):
             input_bold(f"  {module_name} ingest in (Y/N) [{ingest_in}]: "),
             ingest_in,
         )
-        set_sync_peer_module_flags(peer_id, module_id, sync_out, ingest_in)
+        set_sync_peer_module_flags(peer_id, module_id, sync_out, ingest_in, persist=True)
 
 
 def _sync_peer_module_restriction_line(peer, module_rows):
@@ -1409,7 +1409,6 @@ def add_sync_peer_entry():
         sync_mesh_nodes = _normalize_yn(input_bold("Sync mesh nodes out/in (Y/N) [Y]: "), 'Y')
     ingest_bulletins = _normalize_yn(input_bold("Ingest bulletins in (Y/N) [Y]: "), 'Y')
     ingest_channels = _normalize_yn(input_bold("Ingest channels in (Y/N) [Y]: "), 'Y')
-    enabled = _normalize_yn(input_bold("Enabled (Y/N) [Y]: "), 'Y')
     if not bbs_node:
         _finish_action_message("BBS node is required.", "Add Sync Peer")
         return
@@ -1423,11 +1422,26 @@ def add_sync_peer_entry():
         sync_mesh_nodes=sync_mesh_nodes,
         ingest_bulletins=ingest_bulletins,
         ingest_channels=ingest_channels,
-        enabled=enabled,
+        enabled='Y',
     ):
         peer_id = _peer_id_for_bbs_node(bbs_node)
         if peer_id is not None:
             _prompt_sync_peer_module_flags(peer_id, sync_protocol)
+            enabled = _normalize_yn(input_bold("Enabled (Y/N) [Y]: "), 'Y')
+            if enabled != 'Y':
+                update_sync_peer(
+                    peer_id,
+                    bbs_node,
+                    sync_protocol,
+                    bbs_name,
+                    sync_bulletins=sync_bulletins,
+                    sync_mail=sync_mail,
+                    sync_channels=sync_channels,
+                    sync_mesh_nodes=sync_mesh_nodes,
+                    ingest_bulletins=ingest_bulletins,
+                    ingest_channels=ingest_channels,
+                    enabled=enabled,
+                )
         _finish_action_message(
             f"Sync peer {bbs_node} added with protocol {sync_protocol}.",
             "Add Sync Peer",
@@ -1498,6 +1512,7 @@ def edit_sync_peer_entry():
         input_bold(f"Ingest channels in (Y/N) [{ingest_channels}]: "),
         ingest_channels,
     )
+    _prompt_sync_peer_module_flags(peer_id, sync_protocol)
     enabled = _normalize_yn(
         input_bold(f"Enabled (Y/N) [{enabled}]: "),
         enabled,
@@ -1515,7 +1530,6 @@ def edit_sync_peer_entry():
         ingest_channels=ingest_channels,
         enabled=enabled,
     ):
-        _prompt_sync_peer_module_flags(peer_id, sync_protocol)
         _finish_action_message(f"Sync peer {peer_id} updated.", "Edit Sync Peer")
     else:
         _finish_action_message("Could not update sync peer.", "Edit Sync Peer")
