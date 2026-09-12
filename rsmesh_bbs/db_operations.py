@@ -14,11 +14,13 @@ from .config_init import (
     ensure_config_yaml_schema,
     export_sys_config_to_yaml,
     flatten_yaml_config,
+    is_sys_config_key_protected,
     load_config,
     load_example_config_defaults,
 )
 from .sqlite_config import configure_sqlite_connection
 from .tc2_migration import migrate_tc2_database
+from .release_migration import migrate_release_database
 from .utils import (
     send_bulletin_to_sync_peers,
     send_delete_bulletin_to_sync_peers,
@@ -745,6 +747,7 @@ def initialize_database(quiet=False):
                 )''')
     migrate_tc2_database(c)
     _ensure_default_modules(c)
+    migrate_release_database(c)
     _ensure_database_indexes(c)
     conn.commit()
     if not quiet:
@@ -1458,6 +1461,8 @@ def update_sys_config_entry(cfg_section, cfg_key, cfg_value):
     cfg_key = (cfg_key or '').strip()
     if not cfg_section or not cfg_key:
         return False
+    if is_sys_config_key_protected(cfg_section, cfg_key):
+        return False
 
     conn = get_db_connection()
     c = conn.cursor()
@@ -1473,6 +1478,8 @@ def delete_sys_config_entry(cfg_section, cfg_key):
     cfg_section = (cfg_section or '').strip()
     cfg_key = (cfg_key or '').strip()
     if not cfg_section or not cfg_key:
+        return False
+    if is_sys_config_key_protected(cfg_section, cfg_key):
         return False
 
     conn = get_db_connection()

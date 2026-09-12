@@ -26,6 +26,7 @@ from rsmesh_bbs.version import APP_NAME, VERSION
 from rsmesh_bbs.config_init import initialize_config, get_interface, init_cli_parser, format_board_banner, DEFAULT_CONFIG_FILE
 from rsmesh_bbs.preflight import run_server_preflight
 from rsmesh_bbs.tc2_migration import prepare_tc2_upgrade, import_tc2_sync_peers_from_ini
+from rsmesh_bbs.release_migration import prepare_release_upgrade, finalize_release_upgrade
 from rsmesh_bbs.core_services import ensure_core_services_config
 from rsmesh_bbs.db_operations import (
     initialize_database,
@@ -65,6 +66,7 @@ def main():
     args = init_cli_parser()
     config_file = args.config if args.config is not None else DEFAULT_CONFIG_FILE
     prepare_tc2_upgrade(config_file)
+    prepare_release_upgrade(config_file)
     run_server_preflight(config_file)
     system_config = initialize_config(config_file)
     display_banner(system_config['board_name'])
@@ -72,6 +74,7 @@ def main():
     initialize_database()
     ensure_sys_config_from_yaml(config_file)
     ensure_core_services_config(config_file)
+    finalize_release_upgrade()
     import_tc2_sync_peers_from_ini()
 
     interface = get_interface(system_config)

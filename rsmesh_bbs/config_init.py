@@ -24,6 +24,14 @@ SYS_CONFIG_SECTION_LABELS = {
     "schedule": "Schedule",
 }
 
+DATABASE_VERSION_SECTION = "bbs"
+DATABASE_VERSION_KEY = "database_version"
+
+# Internal sys_config keys: not editable via admin and not exported to config.yml.
+SYS_CONFIG_PROTECTED_KEYS = frozenset({
+    (DATABASE_VERSION_SECTION, DATABASE_VERSION_KEY),
+})
+
 # Keys managed on other admin screens; still required in sys_config but hidden here.
 SYS_CONFIG_ADMIN_EXCLUDED_KEYS = frozenset({
     ("bbs", "core_bulletins"),
@@ -31,7 +39,11 @@ SYS_CONFIG_ADMIN_EXCLUDED_KEYS = frozenset({
     ("bbs", "core_channels"),
     ("bbs", "mail_commands_on_main_menu"),
     ("bbs", "suppress_modules_menu"),
-})
+}) | SYS_CONFIG_PROTECTED_KEYS
+
+
+def is_sys_config_key_protected(cfg_section, cfg_key):
+    return ((cfg_section or "").strip(), (cfg_key or "").strip()) in SYS_CONFIG_PROTECTED_KEYS
 
 
 def require_config_file(config_file: Optional[str] = None) -> str:

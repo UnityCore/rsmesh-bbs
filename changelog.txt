@@ -69,6 +69,12 @@ Sync (rsv1)
   - Pinned bulletins sync via rsv1 pin field
   - Protocol differences documented in docs/RSMESH-BBS-DEVELOPER-GUIDE.md
 
+Release upgrade (1.0 -> 1.1)
+  - release_migration.py: prepare_release_upgrade, migrate_release_database,
+    finalize_release_upgrade; stores bbs.database_version in sys_config
+  - Server, admin, and client call the upgrade path on startup
+  - Legacy installs with existing data trigger 1.1 schema completion and main menu regen
+
 Documentation
   - Sysop guide: docs/RSMESH-BBS-SYSOP-GUIDE.md (renamed from README-ADMIN.md)
   - Developer guide: docs/RSMESH-BBS-DEVELOPER-GUIDE.md
