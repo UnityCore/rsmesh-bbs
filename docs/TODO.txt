@@ -37,7 +37,7 @@ Status summary (2026-09-11)
     - Module keys on main menu (per-module main_menu_visible on modules table)
     - Validate menu_option does not collide with core keys B, C, M, O, X (R/S mail submenu only)
     - Suppress M[O]dules submenu (bbs.suppress_modules_menu)
-    - Hide M[O]dules when no modules need the aggregator submenu
+    - Hide M[O]dules when no enabled modules need the aggregator submenu
     - Driven by enabled modules + suppress/hide Modules rules (not only core services)
 
 - Admin System Configuration refactor [NOT STARTED]

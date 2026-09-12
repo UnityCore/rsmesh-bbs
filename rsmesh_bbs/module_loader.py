@@ -141,15 +141,12 @@ class ModuleManager:
             return None
 
     def get_menu_modules(self):
-        from .mesh_ui import is_suppress_modules_menu
+        from .mesh_ui import enabled_modules_for_submenu
 
+        submenu_ids = {row[0] for row in enabled_modules_for_submenu()}
         modules = []
-        suppress = is_suppress_modules_menu()
         for row, _instance in self._instances.values():
-            if row[4] != 'Y':
-                continue
-            main_menu_visible = row[6] if len(row) > 6 else "N"
-            if suppress and main_menu_visible == 'Y':
+            if row[0] not in submenu_ids:
                 continue
             modules.append({
                 'id': row[0],

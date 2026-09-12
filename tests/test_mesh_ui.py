@@ -51,14 +51,31 @@ class TestMainMenuModules:
         replies = mesh_client.send("f")
         assert any("??" in reply or "= Fortune =" in reply for reply in replies)
 
-    def test_suppress_hides_modules_when_all_on_main_menu(self, temp_db):
+    def test_suppress_hides_modules_when_all_enabled_on_main_menu(self, temp_db):
         _seed()
         conn = db_operations.get_db_connection()
-        conn.execute("UPDATE modules SET enabled = 'Y', main_menu_visible = 'Y'")
+        conn.execute(
+            "UPDATE modules SET main_menu_visible = 'Y' WHERE enabled = 'Y'"
+        )
         conn.commit()
         mesh_ui.set_suppress_modules_menu(True)
         body = mesh_ui.build_main_menu_body()
         assert "M[o]dules" not in body
+
+    def test_suppress_ignores_disabled_modules_not_on_main_menu(self, temp_db):
+        _seed()
+        conn = db_operations.get_db_connection()
+        conn.execute(
+            "UPDATE modules SET main_menu_visible = 'Y' WHERE enabled = 'Y'"
+        )
+        conn.execute(
+            "UPDATE modules SET enabled = 'N', main_menu_visible = 'N' "
+            "WHERE module_dir = 'example_hello'"
+        )
+        conn.commit()
+        mesh_ui.set_suppress_modules_menu(True)
+        assert mesh_ui.should_show_modules_entry() is False
+        assert "M[o]dules" not in mesh_ui.build_main_menu_body()
 
     def test_suppress_keeps_modules_when_submenu_needed(self, temp_db):
         _seed()

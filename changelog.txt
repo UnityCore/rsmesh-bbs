@@ -12,7 +12,7 @@ Mesh user interface
   - Disabled core service keys remain on the menu for optional module overrides
   - Empty mail inbox returns to the mail submenu instead of the main menu
   - Per-module main_menu_visible flag promotes module keys to the main menu
-  - bbs.suppress_modules_menu hides the M[o]dules aggregator when all modules are promoted
+  - bbs.suppress_modules_menu hides the M[o]dules aggregator when all enabled modules are promoted
   - M[o]dules hidden when no enabled modules need the aggregator submenu
   - Invalid or oversized main_menu.txt falls back to auto-generated body (200-byte mesh limit)
   - Admin: Regenerate Main Menu; Edit Module Flags includes Show on main menu

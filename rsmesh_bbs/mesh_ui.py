@@ -70,16 +70,26 @@ def _main_menu_modules():
     ]
 
 
+def _all_enabled_modules_on_main_menu():
+    enabled = _enabled_modules()
+    return bool(enabled) and all(row[6] == "Y" for row in enabled)
+
+
+def enabled_modules_for_submenu():
+    """Enabled modules that would appear under M[o]dules."""
+    enabled = _enabled_modules()
+    if is_suppress_modules_menu():
+        return [row for row in enabled if row[6] != "Y"]
+    return enabled
+
+
 def should_show_modules_entry():
     enabled = _enabled_modules()
     if not enabled:
         return False
-    submenu_only = [row for row in enabled if row[6] != "Y"]
-    if submenu_only:
-        return True
     if is_suppress_modules_menu():
-        return False
-    return True
+        return not _all_enabled_modules_on_main_menu()
+    return bool(enabled_modules_for_submenu())
 
 
 def get_main_menu_keys():
