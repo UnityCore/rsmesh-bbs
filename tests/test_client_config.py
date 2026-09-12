@@ -8,7 +8,7 @@ from rsmesh_bbs.config_init import (
     print_incomplete_setup_error,
     require_client_setup,
 )
-from rsmesh_bbs.mesh_client import node_id_to_num
+from rsmesh_bbs.mesh_client import BbsMeshClient, node_id_to_num
 
 
 class TestFormatHeaderLine:
@@ -52,6 +52,42 @@ class TestClientConfig:
 
         settings = get_client_settings(str(config_path))
         assert settings["long_name"] == "Alice Handset"
+
+    def test_get_client_settings_uses_server_defaults(self, tmp_path):
+        config_path = tmp_path / "config_client.yml"
+        config_path.write_text("client: {}\n", encoding="utf-8")
+
+        settings = get_client_settings(str(config_path))
+        assert settings["virtual_node_id"] == "!aabbcc00"
+        assert settings["virtual_short_name"] == "BBS0"
+        assert settings["virtual_long_name"] == "RSMesh Virtual Radio"
+
+    def test_get_client_settings_reads_server_section(self, tmp_path):
+        config_path = tmp_path / "config_client.yml"
+        config_path.write_text(
+            "server:\n"
+            "  virtual_node_id: \"!11223344\"\n"
+            "  virtual_short_name: RSVR\n"
+            "  virtual_long_name: Test BBS Radio\n",
+            encoding="utf-8",
+        )
+
+        settings = get_client_settings(str(config_path))
+        assert settings["virtual_node_id"] == "!11223344"
+        assert settings["virtual_short_name"] == "RSVR"
+        assert settings["virtual_long_name"] == "Test BBS Radio"
+
+
+class TestBbsMeshClientServerConfig:
+    def test_create_uses_configured_virtual_bbs_node(self, temp_db):
+        client = BbsMeshClient.create(
+            bbs_node_id="!11223344",
+            bbs_short_name="RSVR",
+            bbs_long_name="Test BBS Radio",
+        )
+
+        assert client.interface.myInfo.my_node_num == 0x11223344
+        assert client.interface.nodes["!11223344"]["user"]["shortName"] == "RSVR"
 
 
 class TestRequireClientSetup:

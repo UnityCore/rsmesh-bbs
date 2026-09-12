@@ -103,7 +103,7 @@ Operator reference for running and configuring RSMesh BBS: the mesh client simul
 
 `rsmesh-bbs_client.py` simulates a mesh handset in-process — useful for testing menus, mail, and bulletins without a Meshtastic device or running server. It uses the same `rsmesh-bbs.db` and `config.yml` as the server (for board name and other BBS settings), but drives the BBS command handlers directly through a mock interface (no radio, no PyPubSub).
 
-Simulated handset identity (`node_id`, `short_name`, `long_name`) is configured in `config_client.yml`. Copy the starter file before your first run:
+Simulated handset identity (`node_id`, `short_name`, `long_name`) and the in-process virtual BBS radio (`virtual_node_id`, `virtual_short_name`, `virtual_long_name`) are configured in `config_client.yml`. Copy the starter file before your first run:
 
 ```bash
 cp example_config_client.yml config_client.yml
@@ -134,9 +134,16 @@ client:
   node_id: "!0c0ffee0"
   short_name: COFY
   long_name: CLI Test User
+
+server:
+  virtual_node_id: "!aabbcc00"
+  virtual_short_name: BBS0
+  virtual_long_name: RSMesh Virtual Radio
 ```
 
-Command-line flags override values from `config_client.yml` when you need a one-off identity. The board banner still comes from `config.yml` in the project directory (see [Configuration reference](#configuration-reference)).
+The `client` section is your simulated handset. The `server` section is the mock BBS radio the client talks to locally (not a real Meshtastic device). `virtual_node_id` must be a Meshtastic-style hex ID with a leading `!`; the node number is derived from it automatically. If you omit `virtual_long_name`, it defaults to `RSMesh Virtual Radio`.
+
+Command-line flags override `client` values from `config_client.yml` when you need a one-off handset identity. Virtual BBS radio settings are read from the config file only. The board banner still comes from `config.yml` in the project directory (see [Configuration reference](#configuration-reference)).
 
 Type messages as you would from a handset (single-letter menu commands such as `B`, `M`, `R`). See the [User Guide](RSMESH-BBS-USER-GUIDE.md) for menus and flows. Press Enter or type `X` for the main menu. Ctrl+C or Ctrl+D to quit.
 
@@ -147,6 +154,7 @@ The pytest `mesh_client` fixture in `tests/conftest.py` uses the same harness ag
 | Setting | Location | Notes |
 |---------|----------|-------|
 | Simulated handset identity | `config_client.yml` `client` | `node_id`, `short_name`, and `long_name` for `rsmesh-bbs_client.py` (see `example_config_client.yml`) |
+| Virtual BBS radio (mesh client) | `config_client.yml` `server` | `virtual_node_id`, `virtual_short_name`, and `virtual_long_name` (default long name: `RSMesh Virtual Radio`) for the in-process mock radio used by `rsmesh-bbs_client.py` |
 | Board name, superuser, event bus topic | `config.yml` `bbs` | Banner text, Urgent board permission, and PyPubSub topic for incoming radio packets (`eventbus_topic`, default `meshtastic.receive`) |
 | Urgent mesh alerts (local) | `config.yml` `bbs` `send_urgent_alert_local` | `true`/`false` — broadcast on primary channel when an Urgent bulletin is posted on this node (default `false`) |
 | Urgent mesh alerts (sync) | `config.yml` `bbs` `send_urgent_alert_from_sync` | `true`/`false` — broadcast when an Urgent bulletin is ingested from a sync peer (default `false`) |
@@ -161,7 +169,7 @@ The pytest `mesh_client` fixture in `tests/conftest.py` uses the same harness ag
 | Sync peers | `sync_peers` table | Configure with `rsmesh-bbs_admin.py`. Protocols: `tc2`, `rsv1` (and future `rsv2`, …). See [Sync wire formats](RSMESH-BBS-DEVELOPER-GUIDE.md#sync-wire-formats). |
 | Sysadmin nodes | `sysadmin_nodes` table | Configure with `rsmesh-bbs_admin.py` (also seeded from `superuser_node` and node catalog) |
 
-See `example_config.yml` for a commented starter BBS configuration and `example_config_client.yml` for the mesh client handset identity.
+See `example_config.yml` for a commented starter BBS configuration and `example_config_client.yml` for mesh client handset and virtual radio identity.
 
 ## Urgent board alerts
 

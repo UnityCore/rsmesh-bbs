@@ -12,3 +12,9 @@ client:
   short_name: COFY
   # Full display name for the simulated handset
   long_name: CLI Test User
+
+# Simulated BBS radio identity for in-process testing (no real mesh).
+server:
+  virtual_node_id: "!aabbcc00"
+  virtual_short_name: BBS0
+  virtual_long_name: RSMesh Virtual Radio

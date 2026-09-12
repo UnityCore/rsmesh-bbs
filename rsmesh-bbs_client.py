@@ -109,11 +109,15 @@ def main() -> int:
     initialize_database(quiet=True)
     ensure_sys_config_from_yaml(config_file)
     ensure_core_services_config(config_file)
+    client_settings = get_client_settings(str(client_path))
     client = BbsMeshClient.create(
         client_node_id=args.node_id,
         client_node_num=args.node_num,
         client_short_name=args.short_name,
         client_long_name=args.long_name,
+        bbs_node_id=client_settings["virtual_node_id"],
+        bbs_short_name=client_settings["virtual_short_name"],
+        bbs_long_name=client_settings["virtual_long_name"],
     )
 
     clear_screen()

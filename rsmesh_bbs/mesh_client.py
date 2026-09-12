@@ -17,6 +17,10 @@ DEFAULT_CLIENT_NODE_NUM = 0x0C0FFEE0
 DEFAULT_CLIENT_SHORT_NAME = "COFY"
 DEFAULT_CLIENT_LONG_NAME = "CLI Test User"
 
+DEFAULT_BBS_NODE_ID = "!aabbcc00"
+DEFAULT_BBS_SHORT_NAME = "BBS0"
+DEFAULT_BBS_LONG_NAME = "RSMesh Virtual Radio"
+
 
 def node_id_to_num(node_id: str, fallback: int = DEFAULT_CLIENT_NODE_NUM) -> int:
     node_id = (node_id or "").strip()
@@ -67,11 +71,13 @@ class BbsMeshClient:
         client_node_num: int = DEFAULT_CLIENT_NODE_NUM,
         client_short_name: str = DEFAULT_CLIENT_SHORT_NAME,
         client_long_name: str = DEFAULT_CLIENT_LONG_NAME,
-        bbs_node_id: str = "!aabbcc00",
-        bbs_node_num: int = 1,
-        bbs_short_name: str = "BBS0",
-        bbs_long_name: str = "Mock BBS Node",
+        bbs_node_id: str = DEFAULT_BBS_NODE_ID,
+        bbs_node_num: Optional[int] = None,
+        bbs_short_name: str = DEFAULT_BBS_SHORT_NAME,
+        bbs_long_name: str = DEFAULT_BBS_LONG_NAME,
     ) -> "BbsMeshClient":
+        if bbs_node_num is None:
+            bbs_node_num = node_id_to_num(bbs_node_id, fallback=1)
         interface = MockMeshInterface(
             bbs_node_id=bbs_node_id,
             bbs_node_num=bbs_node_num,

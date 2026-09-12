@@ -42,7 +42,7 @@ class MockMeshInterface:
         bbs_node_id: str = "!aabbcc00",
         bbs_node_num: int = 1,
         bbs_short_name: str = "BBS0",
-        bbs_long_name: str = "Mock BBS Node",
+        bbs_long_name: str = "RSMesh Virtual Radio",
     ):
         self.myInfo = SimpleNamespace(my_node_num=bbs_node_num)
         self.localNode = SimpleNamespace(nodeNum=bbs_node_num)

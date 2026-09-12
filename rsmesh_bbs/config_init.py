@@ -98,6 +98,9 @@ def load_client_config(client_config_file: Optional[str] = None) -> dict[str, An
 
 def get_client_settings(client_config_file: Optional[str] = None) -> dict[str, str]:
     from .mesh_client import (
+        DEFAULT_BBS_LONG_NAME,
+        DEFAULT_BBS_NODE_ID,
+        DEFAULT_BBS_SHORT_NAME,
         DEFAULT_CLIENT_LONG_NAME,
         DEFAULT_CLIENT_NODE_ID,
         DEFAULT_CLIENT_SHORT_NAME,
@@ -105,10 +108,14 @@ def get_client_settings(client_config_file: Optional[str] = None) -> dict[str, s
 
     config = load_client_config(client_config_file)
     client = config.get("client", {})
+    server = config.get("server", {})
     return {
         "node_id": client.get("node_id", DEFAULT_CLIENT_NODE_ID),
         "short_name": client.get("short_name", DEFAULT_CLIENT_SHORT_NAME),
         "long_name": client.get("long_name", DEFAULT_CLIENT_LONG_NAME),
+        "virtual_node_id": server.get("virtual_node_id", DEFAULT_BBS_NODE_ID),
+        "virtual_short_name": server.get("virtual_short_name", DEFAULT_BBS_SHORT_NAME),
+        "virtual_long_name": server.get("virtual_long_name", DEFAULT_BBS_LONG_NAME),
     }
 
 
