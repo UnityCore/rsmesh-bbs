@@ -233,6 +233,43 @@ class TestBbsListSync:
         assert entry is not None
         assert entry["board_name"] == "Current Wire BBS"
 
+    def test_inbound_sync_does_not_block_outbound_for_local_entry(
+        self, temp_db, bbs_list_db,
+    ):
+        db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1", bbs_name="Peer A")
+        storage.upsert_entry(
+            "Local BBS",
+            "!local0001",
+            "LOC1",
+            sync_interest="Y",
+            is_local="Y",
+        )
+        interface = MockMeshInterface()
+        interface.module_manager = ModuleManager()
+        self._register(interface.module_manager)
+        db_operations.reload_sync_peers(interface)
+
+        payload = {
+            "uid": "!local0001",
+            "bn": "Stale Remote Copy",
+            "sn": "STAL",
+            "loc": "",
+            "si": "N",
+        }
+        message = build_rs_message(1, storage.wire_type(), payload)
+        _process_rs_sync_message(0, message, interface, "!peer_a")
+
+        entry = storage.get_entry("!local0001")
+        assert entry["board_name"] == "Local BBS"
+        assert entry["is_local"] == "Y"
+        pending = get_pending_sync_peers(
+            storage.RECORD_TYPE,
+            "!local0001",
+            interface.sync_peers,
+            interface,
+        )
+        assert len(pending) == 1
+
     def test_inbound_sync_upserts_entry(self, temp_db, bbs_list_db):
         db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1")
         interface = MockMeshInterface()

@@ -9,6 +9,7 @@ from rsmesh_bbs.module_sync import (
 )
 from rsmesh_bbs.sync_wire import build_rs_message
 from rsmesh_bbs.utils import (
+    filter_peers_for_record_type,
     get_sync_peer_by_bbs_node,
     send_sync_message,
     sync_peer_bbs_node,
@@ -104,13 +105,21 @@ class Module:
         )
 
     def _ingest_bbs_list_rs(self, msg_type, fields, sender_node_id, interface):
+        node_hex = storage.normalize_node_hex(fields.get("uid"))
+        existing = storage.get_entry(node_hex) if node_hex else None
+        if existing and existing.get("is_local") == "Y":
+            logging.info(
+                "Ignored BBS_LIST_SYNC for local entry %s from %s.",
+                node_hex,
+                sender_node_id,
+            )
+            return
         if not storage.upsert_from_wire(fields):
             logging.warning(
                 "Rejected BBS_LIST_SYNC from %s; invalid or incomplete payload.",
                 sender_node_id,
             )
             return
-        node_hex = storage.normalize_node_hex(fields.get("uid"))
         logging.info(
             "Ingested BBS_LIST_SYNC for %s from %s.",
             node_hex or fields.get("uid"),
@@ -139,6 +148,16 @@ class Module:
                 interface,
             )
             if not pending:
+                eligible = filter_peers_for_record_type(
+                    peers,
+                    storage.RECORD_TYPE,
+                    interface,
+                )
+                if eligible:
+                    logging.info(
+                        "BBS_LIST_SYNC: %s already synced to all eligible peers.",
+                        record_key,
+                    )
                 continue
             message = build_rs_message(1, storage.wire_type(), storage.entry_to_wire(entry))
             synced = []

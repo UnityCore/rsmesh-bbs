@@ -261,6 +261,9 @@ def upsert_from_wire(fields):
     node_hex = normalize_node_hex(fields.get("uid"))
     if not node_hex:
         return None
+    existing = get_entry(node_hex)
+    if existing and existing.get("is_local") == "Y":
+        return None
     return upsert_entry(
         board_name=(fields.get("bn") or "").strip(),
         node_hex=node_hex,
