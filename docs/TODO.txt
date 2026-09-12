@@ -25,23 +25,20 @@ Status summary (2026-09-11)
     - Peer sync peer flags (sync_bulletins, sync_mail, etc.) remain per-peer; core service
       off is a local master switch that overrides outbound/inbound regardless of peer config
 
-- Dynamic Main Menu [PARTIAL]
-    - Done:
-      - Two-part HELP display: dynamic title line + cached option body (mesh_ui/main_menu.txt)
-      - Regenerate cache on core-service toggle; copy prior file to mesh_ui/main_menu.old
-      - 1.1 layout: [B]ulletins/[C]hannels, [M]ail/M[o]dules, E[X]IT
-      - [M]ail submenu: [R]ead Mail, [S]end Mail, E[X]IT
-      - Hide [M]ail on main menu when Mail core service is off
-      - dispatch_main_menu_key: core handler or module override for B/C/M
-    - Remaining:
-      - Admin: Administration -> Regenerate Main Menu (manual rewrite of cache)
-      - Optional sys_config path override for main menu file (default mesh_ui/main_menu.txt)
-      - Operator edit of main_menu.txt with invalid/oversized fallback to auto-generated body
-      - Module keys on main menu (per-module main_menu_visible on modules table)
-      - Validate menu_option does not collide with core keys B, C, M, O, X (R/S mail submenu only)
-      - Suppress M[O]dules submenu (bbs.suppress_modules_menu)
-      - Hide M[O]dules when no modules need the aggregator submenu
-      - Driven by enabled modules + suppress/hide Modules rules (not only core services)
+- Dynamic Main Menu [DONE]
+    - Two-part HELP display: dynamic title line + cached option body (mesh_ui/main_menu.txt)
+    - Regenerate cache on core-service / module-flag / suppress toggle; copy prior file to mesh_ui/main_menu.old
+    - 1.1 layout: [B]ulletins/[C]hannels, [M]ail/M[o]dules, E[X]IT
+    - [M]ail submenu: [R]ead Mail, [S]end Mail, E[X]IT
+    - Hide [M]ail on main menu when Mail core service is off
+    - dispatch_main_menu_key: core handler, main-menu module key, or module override for B/C/M
+    - Admin: Administration -> Regenerate Main Menu (manual rewrite of cache)
+    - Operator edit of main_menu.txt with invalid/oversized fallback to auto-generated body
+    - Module keys on main menu (per-module main_menu_visible on modules table)
+    - Validate menu_option does not collide with core keys B, C, M, O, X (R/S mail submenu only)
+    - Suppress M[O]dules submenu (bbs.suppress_modules_menu)
+    - Hide M[O]dules when no modules need the aggregator submenu
+    - Driven by enabled modules + suppress/hide Modules rules (not only core services)
 
 - Admin System Configuration refactor [NOT STARTED]
     - Today: Administration -> System Configuration is generic CRUD on sys_config

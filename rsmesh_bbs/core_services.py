@@ -75,9 +75,9 @@ def get_core_service_states():
 
 
 def _regenerate_main_menu():
-    from .mesh_ui import regenerate_main_menu_file
+    from .mesh_ui import ensure_menu_config
 
-    regenerate_main_menu_file()
+    ensure_menu_config()
 
 
 def set_core_service_enabled(cfg_key, enabled):

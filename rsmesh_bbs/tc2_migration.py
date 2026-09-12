@@ -171,6 +171,7 @@ def ensure_tc2_upgrade_schema(c):
     _upgrade_channels_schema(c)
     _upgrade_sync_peers_schema(c)
     _upgrade_node_catalog_schema(c)
+    _upgrade_modules_schema(c)
     _create_rsmesh_support_tables(c)
 
 
@@ -210,6 +211,18 @@ def _node_catalog_public_key_is_nullable(c):
         if name == "public_key":
             return notnull == 0
     return True
+
+
+def _upgrade_modules_schema(c):
+    if not _table_exists(c, "modules"):
+        return
+
+    _add_column_if_missing(
+        c,
+        "modules",
+        "main_menu_visible",
+        "TEXT NOT NULL DEFAULT 'N'",
+    )
 
 
 def _upgrade_node_catalog_schema(c):

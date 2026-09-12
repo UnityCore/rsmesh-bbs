@@ -578,7 +578,8 @@ def initialize_database(quiet=False):
                     module_dir TEXT NOT NULL UNIQUE,
                     menu_option TEXT NOT NULL UNIQUE COLLATE NOCASE,
                     enabled TEXT NOT NULL DEFAULT 'Y',
-                    schedule_enabled TEXT NOT NULL DEFAULT 'N'
+                    schedule_enabled TEXT NOT NULL DEFAULT 'N',
+                    main_menu_visible TEXT NOT NULL DEFAULT 'N'
                 )''')
     c.execute('''CREATE TABLE IF NOT EXISTS record_sync_peers (
                     record_type TEXT NOT NULL,
@@ -611,6 +612,9 @@ def initialize_database(quiet=False):
     _ensure_default_modules(c)
     _ensure_database_indexes(c)
     conn.commit()
+    from .mesh_ui import ensure_menu_config
+
+    ensure_menu_config()
     if not quiet:
         print("Database schema initialized.")
 
@@ -1100,6 +1104,9 @@ def _ensure_default_modules(c):
     )
 
 
+RESERVED_MODULE_MENU_OPTIONS = frozenset({"B", "C", "M", "O", "X", "R", "S"})
+
+
 def format_module_menu_option(menu_option):
     text = (menu_option or '').strip()
     if len(text) == 1 and text.isalpha():
@@ -1107,13 +1114,25 @@ def format_module_menu_option(menu_option):
     return text
 
 
+def validate_module_menu_option(menu_option):
+    """Return (ok, normalized_option_or_error_message)."""
+    option = format_module_menu_option(menu_option)
+    if len(option) != 1 or not option.isalpha():
+        return False, "Menu option must be a single letter."
+    if option.upper() in RESERVED_MODULE_MENU_OPTIONS:
+        return False, f"Menu option {option} is reserved for core menus."
+    return True, option
+
+
 def _normalize_module_row(row):
     if row is None:
         return None
     menu_option = format_module_menu_option(row[3])
-    if menu_option == row[3]:
+    main_menu_visible = row[6] if len(row) > 6 else "N"
+    normalized = (row[0], row[1], row[2], menu_option, row[4], row[5], main_menu_visible)
+    if len(row) > 6 and menu_option == row[3]:
         return row
-    return (row[0], row[1], row[2], menu_option, row[4], row[5])
+    return normalized
 
 
 def get_modules(enabled_only=False):
@@ -1121,13 +1140,13 @@ def get_modules(enabled_only=False):
     c = conn.cursor()
     if enabled_only:
         c.execute(
-            "SELECT id, module_name, module_dir, menu_option, enabled, schedule_enabled "
-            "FROM modules WHERE enabled = 'Y' ORDER BY id"
+            "SELECT id, module_name, module_dir, menu_option, enabled, schedule_enabled, "
+            "main_menu_visible FROM modules WHERE enabled = 'Y' ORDER BY id"
         )
     else:
         c.execute(
-            "SELECT id, module_name, module_dir, menu_option, enabled, schedule_enabled "
-            "FROM modules ORDER BY id"
+            "SELECT id, module_name, module_dir, menu_option, enabled, schedule_enabled, "
+            "main_menu_visible FROM modules ORDER BY id"
         )
     return [_normalize_module_row(row) for row in c.fetchall()]
 
@@ -1140,8 +1159,8 @@ def get_module_by_id(module_id):
     conn = get_db_connection()
     c = conn.cursor()
     c.execute(
-        "SELECT id, module_name, module_dir, menu_option, enabled, schedule_enabled "
-        "FROM modules WHERE id = ?",
+        "SELECT id, module_name, module_dir, menu_option, enabled, schedule_enabled, "
+        "main_menu_visible FROM modules WHERE id = ?",
         (module_id,),
     )
     return _normalize_module_row(c.fetchone())
@@ -1154,14 +1173,19 @@ def get_module_by_menu_option(menu_option):
     conn = get_db_connection()
     c = conn.cursor()
     c.execute(
-        "SELECT id, module_name, module_dir, menu_option, enabled, schedule_enabled "
-        "FROM modules WHERE menu_option = ? COLLATE NOCASE",
+        "SELECT id, module_name, module_dir, menu_option, enabled, schedule_enabled, "
+        "main_menu_visible FROM modules WHERE menu_option = ? COLLATE NOCASE",
         (menu_option,),
     )
     return _normalize_module_row(c.fetchone())
 
 
-def update_module_flags(module_id, enabled=None, schedule_enabled=None):
+def update_module_flags(
+    module_id,
+    enabled=None,
+    schedule_enabled=None,
+    main_menu_visible=None,
+):
     try:
         module_id = int(module_id)
     except (TypeError, ValueError):
@@ -1178,7 +1202,16 @@ def update_module_flags(module_id, enabled=None, schedule_enabled=None):
             "UPDATE modules SET schedule_enabled = ? WHERE id = ?",
             (_normalize_sync_flag(schedule_enabled), module_id),
         )
+    if main_menu_visible is not None:
+        c.execute(
+            "UPDATE modules SET main_menu_visible = ? WHERE id = ?",
+            (_normalize_sync_flag(main_menu_visible), module_id),
+        )
     conn.commit()
+    if any(value is not None for value in (enabled, schedule_enabled, main_menu_visible)):
+        from .mesh_ui import regenerate_main_menu_file
+
+        regenerate_main_menu_file()
     return True
 
 

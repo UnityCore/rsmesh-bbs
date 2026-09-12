@@ -27,7 +27,10 @@ from .utils import (
 )
 from .node_resolution import is_hex_node_id, record_mesh_node_from_interface, record_mesh_node_from_packet
 
-MAIN_MENU_KEYS = frozenset({"b", "c", "m", "o", "x"})
+def _main_menu_keys():
+    from .mesh_ui import get_main_menu_keys
+
+    return {key.lower() for key in get_main_menu_keys()}
 
 bulletin_menu_handlers = {
     "g": lambda sender_id, interface: handle_bb_steps(sender_id, '0', 1, {'board': 'General'}, interface, None),
@@ -350,7 +353,7 @@ def _handle_user_message(sender_id, message, interface):
 
     on_main_menu = not state or state.get('command') == 'MAIN_MENU'
     if on_main_menu:
-        if message_lower in MAIN_MENU_KEYS:
+        if message_lower in _main_menu_keys():
             dispatch_main_menu_key(sender_id, interface, message_lower)
         else:
             handle_help_command(sender_id, interface)

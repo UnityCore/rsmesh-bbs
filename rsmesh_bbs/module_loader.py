@@ -31,6 +31,7 @@ class ModuleContext:
         self.menu_option = module_row[3]
         self.enabled = module_row[4]
         self.schedule_enabled = module_row[5]
+        self.main_menu_visible = module_row[6] if len(module_row) > 6 else "N"
         self.interface = interface
         self._manager = manager
 
@@ -140,9 +141,15 @@ class ModuleManager:
             return None
 
     def get_menu_modules(self):
+        from .mesh_ui import is_suppress_modules_menu
+
         modules = []
+        suppress = is_suppress_modules_menu()
         for row, _instance in self._instances.values():
             if row[4] != 'Y':
+                continue
+            main_menu_visible = row[6] if len(row) > 6 else "N"
+            if suppress and main_menu_visible == 'Y':
                 continue
             modules.append({
                 'id': row[0],

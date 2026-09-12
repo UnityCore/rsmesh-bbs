@@ -108,8 +108,9 @@ def with_exit_prompt(menu_text, include_exit=True):
 def handle_help_command(sender_id, interface, prefix_messages=None):
     update_user_state(sender_id, {'command': 'MAIN_MENU', 'step': 1})
     mail = get_mail(get_node_id_from_num(sender_id, interface), interface)
-    title = f"= {get_board_name()} : {len(mail)} Msg(s) ="
-    response = f"{title}\n{load_main_menu_body()}"
+    board_name = get_board_name()
+    title = f"= {board_name} : {len(mail)} Msg(s) ="
+    response = f"{title}\n{load_main_menu_body(board_name=board_name)}"
     messages = list(prefix_messages or []) + [response]
     send_user_messages(messages, sender_id, interface)
 
@@ -223,8 +224,10 @@ def handle_exit_command(sender_id, interface):
 
 
 def handle_modules_command(sender_id, interface):
+    from .mesh_ui import should_show_modules_entry
+
     manager = getattr(interface, 'module_manager', None)
-    if manager is None:
+    if manager is None or not should_show_modules_entry():
         send_message("Modules are not available.", sender_id, interface)
         handle_help_command(sender_id, interface)
         return
@@ -542,6 +545,17 @@ def dispatch_main_menu_key(sender_id, interface, menu_key):
     from .core_services import MAIN_MENU_HANDLER_KEYS, is_core_service_enabled
 
     menu_key = (menu_key or "").lower()
+    manager = getattr(interface, "module_manager", None)
+    module_entry = manager.get_by_menu_option(menu_key) if manager else None
+    if module_entry:
+        row, _instance = module_entry
+        main_menu_visible = row[6] if len(row) > 6 else "N"
+        if main_menu_visible == "Y":
+            if manager.on_module_enter(row[0], sender_id, interface):
+                return
+            handle_help_command(sender_id, interface)
+            return
+
     core_handlers = {
         "b": handle_bulletin_command,
         "c": handle_channel_directory_command,
@@ -559,13 +573,10 @@ def dispatch_main_menu_key(sender_id, interface, menu_key):
         handler(sender_id, interface)
         return
 
-    manager = getattr(interface, "module_manager", None)
-    if manager:
-        entry = manager.get_by_menu_option(menu_key)
-        if entry:
-            row, _instance = entry
-            if manager.on_module_enter(row[0], sender_id, interface):
-                return
+    if module_entry:
+        row, _instance = module_entry
+        if manager.on_module_enter(row[0], sender_id, interface):
+            return
 
     handle_help_command(sender_id, interface)
 

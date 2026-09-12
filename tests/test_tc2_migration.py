@@ -35,6 +35,30 @@ def _mail_columns(conn):
 
 
 class TestTc2UpgradeSchema:
+    def test_adds_main_menu_visible_to_modules(self, temp_db):
+        conn = db_operations.get_db_connection()
+        conn.execute("DROP TABLE IF EXISTS modules")
+        conn.execute(
+            """CREATE TABLE modules (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   module_name TEXT NOT NULL,
+                   module_dir TEXT NOT NULL UNIQUE,
+                   menu_option TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                   enabled TEXT NOT NULL DEFAULT 'Y',
+                   schedule_enabled TEXT NOT NULL DEFAULT 'N'
+               )"""
+        )
+        conn.commit()
+        c = conn.cursor()
+        ensure_tc2_upgrade_schema(c)
+        conn.commit()
+
+        columns = [
+            row[1]
+            for row in conn.execute("PRAGMA table_info(modules)").fetchall()
+        ]
+        assert "main_menu_visible" in columns
+
     def test_adds_recipient_short_name_to_legacy_mail(self, temp_db):
         conn = db_operations.get_db_connection()
         _create_tc2_mail_table(conn)

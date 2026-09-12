@@ -74,6 +74,11 @@ from rsmesh_bbs.core_services import (
     is_core_service_enabled,
     toggle_core_service,
 )
+from rsmesh_bbs.mesh_ui import (
+    is_suppress_modules_menu,
+    regenerate_main_menu_file,
+    toggle_suppress_modules_menu,
+)
 from rsmesh_bbs import admin_ui
 
 # Shared terminal layout and display helpers (core + module admin extensions)
@@ -1969,10 +1974,16 @@ def sysadmin_nodes_menu(back_label="Main Menu"):
     return False
 
 
+def regenerate_main_menu_entry():
+    path = regenerate_main_menu_file()
+    _finish_action_message(f"Main menu regenerated: {path}", "Regenerate Main Menu")
+
+
 def administration_menu():
     run_submenu("Administration", [
         ("System Configuration", lambda: sys_config_menu("Administration")),
         ("Core Services", lambda: core_services_menu("Administration")),
+        ("Regenerate Main Menu", regenerate_main_menu_entry),
         ("Sysadmin Nodes", lambda: sysadmin_nodes_menu("Administration")),
         ("Sync Peers", lambda: sync_peers_menu("Administration")),
         ("Modules", lambda: modules_admin_menu("Administration")),
@@ -1997,6 +2008,7 @@ def _module_lines(rows):
                 f"Dir: {row[2]}",
                 f"Enabled: {row[4]}",
                 f"Schedule: {row[5]}",
+                f"Main Menu: {row[6]}",
             )
         )
     return lines
@@ -2032,7 +2044,16 @@ def edit_module_flags_entry():
         input_bold(f"Schedule enabled (Y/N) [{current[5]}]: "),
         current[5],
     )
-    update_module_flags(current[0], enabled=enabled, schedule_enabled=schedule_enabled)
+    main_menu_visible = _normalize_yn(
+        input_bold(f"Show on main menu (Y/N) [{current[6]}]: "),
+        current[6],
+    )
+    update_module_flags(
+        current[0],
+        enabled=enabled,
+        schedule_enabled=schedule_enabled,
+        main_menu_visible=main_menu_visible,
+    )
     _finish_action_message(f"Module {current[1]} updated.", "Edit Module Flags")
 
 
@@ -2045,10 +2066,18 @@ def run_module_admin(module_dir_name, back_label="Modules"):
     return False
 
 
+def toggle_suppress_modules_menu_entry():
+    toggle_suppress_modules_menu()
+    state = "on" if is_suppress_modules_menu() else "off"
+    _finish_action_message(f"Suppress Modules submenu is now {state}.", "Modules")
+
+
 def modules_admin_menu(back_label="Administration"):
+    suppress_state = "On" if is_suppress_modules_menu() else "Off"
     options = [
         ("List Modules", list_modules),
         ("Edit Module Flags", edit_module_flags_entry),
+        (f"Suppress Modules Submenu ({suppress_state})", toggle_suppress_modules_menu_entry),
     ]
     for row in get_modules():
         if row[4] == 'Y' and module_admin_available(row[2]):
