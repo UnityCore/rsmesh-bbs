@@ -37,6 +37,7 @@ from rsmesh_bbs.db_operations import (
     get_sync_peers,
     reload_sync_peers,
     sync_pending_records,
+    sync_mesh_nodes_to_peers,
     normalize_sync_peer_last_heard,
     ensure_sys_config_from_yaml,
     get_peer_sync_seconds,
@@ -46,7 +47,11 @@ from rsmesh_bbs.db_operations import (
 )
 from rsmesh_bbs.module_loader import ModuleManager
 from rsmesh_bbs.time_format import format_relative_time
-from rsmesh_bbs.utils import join_display_fields, drain_outbound_user_messages
+from rsmesh_bbs.utils import (
+    join_display_fields,
+    drain_outbound_user_messages,
+    MESH_NODE_SYNC_DELAY_SECONDS,
+)
 from rsmesh_bbs.urgent_alerts import drain_pending_urgent_alerts
 from rsmesh_bbs.message_processing import on_receive
 from rsmesh_bbs.node_resolution import scan_mesh_nodes_store
@@ -161,13 +166,22 @@ def main():
 
     def sync_pending_worker():
         while True:
+            cycle_start = time.time()
             try:
                 reload_sync_peers(interface)
                 reload_admin_nodes(interface)
                 sync_pending_records(interface.sync_peers, interface)
+                logging.info(
+                    "Waiting %s seconds before mesh nodes sync.",
+                    MESH_NODE_SYNC_DELAY_SECONDS,
+                )
+                time.sleep(MESH_NODE_SYNC_DELAY_SECONDS)
+                sync_mesh_nodes_to_peers(interface.sync_peers, interface)
             except Exception as e:
                 logging.error(f"Error syncing pending records: {e}")
-            time.sleep(get_peer_sync_seconds())
+            elapsed = time.time() - cycle_start
+            remainder = max(0, get_peer_sync_seconds() - elapsed)
+            time.sleep(remainder)
 
     sync_pending_thread = threading.Thread(target=sync_pending_worker, daemon=True)
     sync_pending_thread.start()

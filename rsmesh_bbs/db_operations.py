@@ -499,7 +499,6 @@ def sync_pending_records(sync_peers, interface):
             else:
                 logging.warning(f"Channel {name} sync incomplete; will retry pending peers.")
 
-    sync_mesh_nodes_to_peers(peers, interface)
     _sync_module_pending_records(peers, interface)
 
     from .node_resolution import scan_mesh_nodes_store
@@ -979,8 +978,13 @@ def _mark_mesh_node_synced_to_peer(node_id, peer_id):
 
 
 def sync_mesh_nodes_to_peers(sync_peers, interface):
-    from .utils import filter_peers_for_record_type, send_mesh_node_to_peer, sync_peer_protocol
-    from .sync_wire import is_rs_sync_protocol
+    from .utils import (
+        filter_peers_for_record_type,
+        send_mesh_nodes_batch_to_peer,
+        sync_peer_bbs_node,
+        sync_peer_protocol,
+    )
+    from .sync_wire import dedupe_mesh_node_entries, is_rs_sync_protocol, plan_nodes_sync_batches
 
     peers = get_sync_peers_from_interface(interface, sync_peers)
     mesh_peers = [
@@ -990,14 +994,38 @@ def sync_mesh_nodes_to_peers(sync_peers, interface):
     if not mesh_peers:
         return
 
-    for node_id, short_name, long_name, last_heard in get_mesh_nodes_for_sync():
-        for peer in mesh_peers:
-            peer_id = _resolve_peer_id(peer)
-            if peer_id is None or _mesh_node_synced_to_peer(node_id, peer_id):
-                continue
-            if send_mesh_node_to_peer(
-                node_id, short_name, long_name, last_heard, peer, interface,
-            ):
+    all_nodes = get_mesh_nodes_for_sync()
+    if not all_nodes:
+        return
+
+    for peer in mesh_peers:
+        peer_id = _resolve_peer_id(peer)
+        if peer_id is None:
+            continue
+        pending = dedupe_mesh_node_entries([
+            (node_id, short_name, long_name, last_heard)
+            for node_id, short_name, long_name, last_heard in all_nodes
+            if not _mesh_node_synced_to_peer(node_id, peer_id)
+        ])
+        if not pending:
+            continue
+        peer_name = sync_peer_bbs_node(peer)
+        batches = plan_nodes_sync_batches(pending, sync_peer_protocol(peer))
+        logging.info(
+            "Mesh nodes sync to %s: %d pending nodes in %d batch(es).",
+            peer_name,
+            len(pending),
+            len(batches),
+        )
+        for batch in batches:
+            if not send_mesh_nodes_batch_to_peer(batch, peer, interface):
+                logging.warning(
+                    "Mesh nodes sync to %s stopped after failed batch (%d nodes).",
+                    peer_name,
+                    len(batch),
+                )
+                break
+            for node_id, *_rest in batch:
                 _mark_mesh_node_synced_to_peer(node_id, peer_id)
 
 

@@ -31,7 +31,7 @@ Reference for contributors and module authors: repository layout, tests, the mod
     - [DELETE_BULLETIN](#delete_bulletin)
     - [DELETE_MAIL](#delete_mail)
     - [DELETE_CHANNEL](#delete_channel)
-    - [NODE](#node)
+    - [NODES](#nodes)
     - [CHUNK (transport wrapper)](#chunk-transport-wrapper)
     - [Quick reference](#quick-reference)
 
@@ -411,7 +411,7 @@ RSMesh BBS supports two peer sync protocol families. Choose the protocol per syn
 | Packet size | Single mesh packet (200 bytes max) | Chunked `RS\|N\|CHUNK\|{...}` reassembly for oversized payloads |
 | Bulletin ingest | Insert-only by `unique_id` (duplicate ingests skipped) | Upsert by `unique_id` (edits and pin changes propagate) |
 | Pinned bulletins | Not on the wire; pin state is local to each node | `pin` field (`Y`/`N`) in bulletin JSON |
-| Mesh node sync | Not supported | `NODE` messages when **Sync mesh nodes** is enabled |
+| Mesh node sync | Not supported | `NODES` batch messages when **Sync mesh nodes** is enabled |
 | Channel delete sync | Reconcile workflow | `DELETE_CHANNEL` by `unique_id` |
 
 **tc2** behavior intentionally tracks TC² standards: bulletin sync is create-only, and features such as pinned posts or bulletin edits after the initial sync are not replicated to tc2 peers.
@@ -554,24 +554,34 @@ RS|1|DELETE_CHANNEL|{"uid":"550e8400-e29b-41d4-a716-446655440003"}
 
 **Notes:** rsv1-only; triggers reconcile workflow on the receiving peer.
 
-#### NODE
+#### NODES
 
-**Keys:** `id` node hex ID, `sn` short name, `ln` long name, `lh` last heard (Unix epoch string)
+**Keys:** `n` array of node objects, each with `id` node hex ID, `sn` short name, `ln` long name, `lh` last heard (Unix epoch string)
 
 ```
-RS|1|NODE|{"id":"!a1b2c3d4","sn":"ALICE","ln":"Alice Node","lh":"1700000000"}
+RS|1|NODES|{"n":[{"id":"!a1b2c3d4","sn":"ALICE","ln":"Alice Node","lh":"1700000000"},{"id":"!b2c3d4e5","sn":"BOB","ln":"Bob Node","lh":"1700000001"}]}
 ```
 
 ```json
 {
-  "id": "!a1b2c3d4",
-  "sn": "ALICE",
-  "ln": "Alice Node",
-  "lh": "1700000000"
+  "n": [
+    {
+      "id": "!a1b2c3d4",
+      "sn": "ALICE",
+      "ln": "Alice Node",
+      "lh": "1700000000"
+    },
+    {
+      "id": "!b2c3d4e5",
+      "sn": "BOB",
+      "ln": "Bob Node",
+      "lh": "1700000001"
+    }
+  ]
 }
 ```
 
-**Notes:** rsv1-only. Used when **Sync mesh nodes** is enabled on the peer.
+**Notes:** rsv1-only. Pending mesh nodes are packed into as few `NODES` messages as possible (200-byte packet limit; larger batches use `CHUNK`). Duplicate node IDs in a batch are collapsed before send and on ingest (newest `lh` wins; names filled from the winning row). Ingest still upserts by `node_id` and skips unchanged rows when `from_sync=True`. The sync worker sends mesh node batches about 90 seconds after bulletins, mail, channels, and module sync complete each peer-sync cycle.
 
 #### CHUNK (transport wrapper)
 
@@ -606,5 +616,5 @@ RS|1|CHUNK|{"u":"95f49967-6bc2-4e9c-b970-0eb671154b02","i":0,"n":4,"p":"RS|1|BUL
 | `DELETE_BULLETIN` | `uid` | No |
 | `DELETE_MAIL` | `uid` | No |
 | `DELETE_CHANNEL` | `uid` | Yes |
-| `NODE` | `id`, `sn`, `ln`, `lh` | Yes |
+| `NODES` | `n` (array of `id`, `sn`, `ln`, `lh`) | Yes |
 | `CHUNK` | `u`, `i`, `n`, `p` | Yes (transport) |

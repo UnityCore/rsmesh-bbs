@@ -12,7 +12,9 @@ from rsmesh_bbs.sync_wire import (
     encode_delete_channel_sync_message,
     encode_delete_mail_sync_message,
     encode_mail_sync_message,
-    encode_node_sync_message,
+    dedupe_mesh_node_entries,
+    encode_nodes_sync_message,
+    plan_nodes_sync_batches,
     is_rs_sync_protocol,
     parse_rs_chunk_payload,
     parse_rs_envelope,
@@ -123,16 +125,63 @@ class TestRsEncodeDecodeRoundTrips:
         assert channel_type == "DELETE_CHANNEL"
         assert channel_fields == {"unique_id": CHANNEL_UID}
 
-    def test_node_round_trip(self):
-        message = encode_node_sync_message("rsv1", NODE_ID, "ALICE", "Alice Node", "1700000000")
+    def test_nodes_round_trip(self):
+        nodes = [
+            (NODE_ID, "ALICE", "Alice Node", "1700000000"),
+            ("!b2c3d4e5", "BOB", "Bob Node", "1700000001"),
+        ]
+        message = encode_nodes_sync_message("rsv1", nodes)
         msg_type, fields = _decode_rs_message(message)[1:]
-        assert msg_type == "NODE"
+        assert msg_type == "NODES"
         assert fields == {
-            "node_id": NODE_ID,
-            "short_name": "ALICE",
-            "long_name": "Alice Node",
-            "last_heard": "1700000000",
+            "nodes": [
+                {
+                    "node_id": NODE_ID,
+                    "short_name": "ALICE",
+                    "long_name": "Alice Node",
+                    "last_heard": "1700000000",
+                },
+                {
+                    "node_id": "!b2c3d4e5",
+                    "short_name": "BOB",
+                    "long_name": "Bob Node",
+                    "last_heard": "1700000001",
+                },
+            ],
         }
+
+    def test_dedupe_mesh_node_entries_keeps_newest_last_heard(self):
+        nodes = [
+            (NODE_ID, "ALICE", "Alice Node", "1700000000"),
+            (NODE_ID.upper(), "ALIC", "Stale Node", "1699999999"),
+            ("!b2c3d4e5", "BOB", "Bob Node", "1700000001"),
+        ]
+        deduped = dedupe_mesh_node_entries(nodes)
+        assert len(deduped) == 2
+        assert deduped[0][0] == NODE_ID
+        assert deduped[0][3] == "1700000000"
+
+    def test_nodes_decode_dedupes_duplicate_ids(self):
+        message = (
+            'RS|1|NODES|{"n":[{"id":"!a1b2c3d4","sn":"OLD","ln":"Old","lh":"1"},'
+            '{"id":"!A1B2C3D4","sn":"NEW","ln":"New","lh":"2"}]}'
+        )
+        msg_type, fields = _decode_rs_message(message)[1:]
+        assert msg_type == "NODES"
+        assert len(fields["nodes"]) == 1
+        assert fields["nodes"][0]["short_name"] == "NEW"
+        assert fields["nodes"][0]["last_heard"] == "2"
+
+    def test_plan_nodes_sync_batches_splits_to_packet_limit(self):
+        nodes = [
+            (f"!{index:08x}", f"S{index:02d}", f"Node {index}", str(1700000000 + index))
+            for index in range(12)
+        ]
+        batches = plan_nodes_sync_batches(nodes, "rsv1", max_packet_len=SYNC_PACKET_MAX_LEN)
+        assert batches
+        assert sum(len(batch) for batch in batches) == len(nodes)
+        for batch in batches:
+            assert len(encode_nodes_sync_message("rsv1", batch)) <= SYNC_PACKET_MAX_LEN
 
 
 class TestTc2LegacyEncoding:

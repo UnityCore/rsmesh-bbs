@@ -11,7 +11,7 @@ from .sync_wire import (
     encode_delete_channel_sync_message,
     encode_delete_mail_sync_message,
     encode_mail_sync_message,
-    encode_node_sync_message,
+    encode_nodes_sync_message,
     is_rs_sync_protocol,
     plan_sync_transmit_packets,
 )
@@ -122,6 +122,7 @@ def _wait_for_mesh_ack(interface):
 
 
 MESH_CHUNK_PACE_SECONDS = 2
+MESH_NODE_SYNC_DELAY_SECONDS = 90
 USER_MESSAGE_PACE_SECONDS = 3
 
 
@@ -559,24 +560,25 @@ def send_mail_to_bbs_nodes(
     return synced_peers
 
 
-def send_mesh_node_to_peer(node_id, short_name, long_name, last_heard, peer, interface):
-    message = encode_node_sync_message(
-        sync_peer_protocol(peer),
-        node_id,
-        short_name,
-        long_name,
-        last_heard,
-    )
+def send_mesh_nodes_batch_to_peer(nodes, peer, interface):
+    if not nodes:
+        return True
+    sync_protocol = sync_peer_protocol(peer)
+    message = encode_nodes_sync_message(sync_protocol, nodes)
     bbs_node = sync_peer_bbs_node(peer)
     if send_sync_message(
         message,
         bbs_node,
         interface,
-        sync_protocol=sync_peer_protocol(peer),
+        sync_protocol=sync_protocol,
     ):
         _touch_sync_peer_last_heard(bbs_node)
         return True
-    logging.warning(f"Mesh node sync to {bbs_node} failed.")
+    logging.warning(
+        "Mesh nodes batch sync (%d nodes) to %s failed.",
+        len(nodes),
+        bbs_node,
+    )
     return False
 
 

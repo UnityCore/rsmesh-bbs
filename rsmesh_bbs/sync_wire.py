@@ -106,13 +106,30 @@ def _decode_rs_v1(msg_type, data):
         return msg_type, {"unique_id": _req_field(data, "uid", "unique id")}
     if msg_type == "DELETE_CHANNEL":
         return msg_type, {"unique_id": _req_field(data, "uid", "unique id")}
-    if msg_type == "NODE":
-        return msg_type, {
-            "node_id": _req_field(data, "id", "node id"),
-            "short_name": _opt_field(data, "sn"),
-            "long_name": _opt_field(data, "ln"),
-            "last_heard": _opt_field(data, "lh"),
-        }
+    if msg_type == "NODES":
+        raw_nodes = data.get("n")
+        if not isinstance(raw_nodes, list) or not raw_nodes:
+            raise ValueError("Invalid RS sync payload: missing nodes list")
+        node_rows = []
+        for index, item in enumerate(raw_nodes):
+            if not isinstance(item, dict):
+                raise ValueError(f"Invalid RS sync payload: node {index} is not an object")
+            node_rows.append((
+                _req_field(item, "id", "node id"),
+                _opt_field(item, "sn"),
+                _opt_field(item, "ln"),
+                _opt_field(item, "lh"),
+            ))
+        nodes = [
+            {
+                "node_id": node_id,
+                "short_name": short_name,
+                "long_name": long_name,
+                "last_heard": last_heard,
+            }
+            for node_id, short_name, long_name, last_heard in dedupe_mesh_node_entries(node_rows)
+        ]
+        return msg_type, {"nodes": nodes}
     raise ValueError(f"Unsupported RS sync message type: {msg_type}")
 
 
@@ -258,20 +275,93 @@ def encode_delete_channel_sync_message(sync_protocol, unique_id):
     return build_rs_message(wire_version, "DELETE_CHANNEL", {"uid": unique_id})
 
 
-def encode_node_sync_message(sync_protocol, node_id, short_name, long_name, last_heard):
+def _parse_mesh_node_last_heard(last_heard):
+    if last_heard is None or last_heard == "":
+        return None
+    try:
+        return int(last_heard)
+    except (TypeError, ValueError):
+        return None
+
+
+def _merge_mesh_node_entry(existing, new):
+    existing_id, existing_sn, existing_ln, existing_lh = existing
+    new_id, new_sn, new_ln, new_lh = new
+    existing_ts = _parse_mesh_node_last_heard(existing_lh)
+    new_ts = _parse_mesh_node_last_heard(new_lh)
+    if new_ts is not None and (existing_ts is None or new_ts >= existing_ts):
+        winner_id, winner_sn, winner_ln, winner_lh = new_id, new_sn, new_ln, new_lh
+        fallback_sn, fallback_ln, fallback_lh = existing_sn, existing_ln, existing_lh
+    else:
+        winner_id, winner_sn, winner_ln, winner_lh = existing_id, existing_sn, existing_ln, existing_lh
+        fallback_sn, fallback_ln, fallback_lh = new_sn, new_ln, new_lh
+    merged_lh = winner_lh if _parse_mesh_node_last_heard(winner_lh) is not None else fallback_lh
+    return (
+        winner_id,
+        winner_sn or fallback_sn,
+        winner_ln or fallback_ln,
+        merged_lh,
+    )
+
+
+def dedupe_mesh_node_entries(nodes):
+    """Collapse duplicate node IDs; keep the newest last_heard per node."""
+    merged = {}
+    order = []
+    for node in nodes:
+        node_id, short_name, long_name, last_heard = node
+        key = (node_id or "").strip().lower()
+        if not key:
+            continue
+        if key not in merged:
+            merged[key] = (node_id, short_name, long_name, last_heard)
+            order.append(key)
+            continue
+        merged[key] = _merge_mesh_node_entry(merged[key], node)
+    return [merged[key] for key in order]
+
+
+def _node_wire_entry(node_id, short_name, long_name, last_heard):
+    return {
+        "id": node_id,
+        "sn": short_name or "",
+        "ln": long_name or short_name or "",
+        "lh": "" if last_heard is None else str(last_heard),
+    }
+
+
+def encode_nodes_sync_message(sync_protocol, nodes):
     wire_version = rs_wire_version_for_protocol(sync_protocol)
     if wire_version is None:
-        raise ValueError("NODE sync is only supported for RS protocols")
-    return build_rs_message(
-        wire_version,
-        "NODE",
-        {
-            "id": node_id,
-            "sn": short_name or "",
-            "ln": long_name or short_name or "",
-            "lh": "" if last_heard is None else str(last_heard),
-        },
-    )
+        raise ValueError("NODES sync is only supported for RS protocols")
+    entries = []
+    for node in dedupe_mesh_node_entries(nodes):
+        node_id, short_name, long_name, last_heard = node
+        entries.append(_node_wire_entry(node_id, short_name, long_name, last_heard))
+    return build_rs_message(wire_version, "NODES", {"n": entries})
+
+
+def plan_nodes_sync_batches(nodes, sync_protocol, max_packet_len=SYNC_PACKET_MAX_LEN):
+    """Split mesh nodes into batches that each fit one RS envelope when possible."""
+    nodes = dedupe_mesh_node_entries(nodes)
+    if not nodes:
+        return []
+    batches = []
+    current = []
+    for node in nodes:
+        trial = current + [node]
+        if len(encode_nodes_sync_message(sync_protocol, trial)) <= max_packet_len:
+            current = trial
+            continue
+        if current:
+            batches.append(current)
+            current = [node]
+            continue
+        batches.append([node])
+        current = []
+    if current:
+        batches.append(current)
+    return batches
 
 
 def build_rs_chunk_message(wire_version, transfer_id, index, total, payload):

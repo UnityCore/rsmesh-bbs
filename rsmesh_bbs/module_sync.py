@@ -21,7 +21,7 @@ _CORE_RS_WIRE_TYPES = frozenset({
     "BULLETIN",
     "MAIL",
     "CHANNEL",
-    "NODE",
+    "NODES",
     "DELETE_BULLETIN",
     "DELETE_MAIL",
     "DELETE_CHANNEL",

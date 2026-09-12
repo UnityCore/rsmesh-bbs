@@ -228,19 +228,26 @@ def _process_rs_sync_message(sender_id, message, interface, sender_node_id):
             fields["unique_id"],
             interface,
         )
-    elif msg_type == "NODE":
+    elif msg_type == "NODES":
         if not _inbound_sync_allowed(sender_node_id, interface, 'mesh_nodes'):
             return
         if not is_rs_sync_protocol(get_sync_protocol_for_peer(sender_node_id) or 'tc2'):
-            logging.info(f"Ignoring NODE sync from non-RS peer {sender_node_id}.")
+            logging.info(f"Ignoring NODES sync from non-RS peer {sender_node_id}.")
             return
-        ingest_mesh_node_sync(
-            fields["node_id"],
-            fields["short_name"],
-            fields["long_name"],
-            fields["last_heard"],
-            sender_node_id=sender_node_id,
+        nodes = fields.get("nodes") or []
+        logging.info(
+            "Ingesting NODES sync (%d nodes) from %s.",
+            len(nodes),
+            sender_node_id,
         )
+        for node in nodes:
+            ingest_mesh_node_sync(
+                node["node_id"],
+                node["short_name"],
+                node["long_name"],
+                node["last_heard"],
+                sender_node_id=sender_node_id,
+            )
     elif msg_type == "DELETE_BULLETIN":
         if not _inbound_sync_allowed(sender_node_id, interface, 'bulletins'):
             return
