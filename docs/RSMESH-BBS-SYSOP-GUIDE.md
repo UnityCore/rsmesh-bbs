@@ -133,7 +133,7 @@ Example `config_client.yml`:
 client:
   node_id: "!0c0ffee0"
   short_name: COFY
-  long_name: CLI Test User
+  long_name: BBS Test Client
 
 server:
   virtual_node_id: "!aabbcc00"
@@ -153,7 +153,7 @@ The pytest `mesh_client` fixture in `tests/conftest.py` uses the same harness ag
 
 | Setting | Location | Notes |
 |---------|----------|-------|
-| Simulated handset identity | `config_client.yml` `client` | `node_id`, `short_name`, and `long_name` for `rsmesh-bbs_client.py` (see `example_config_client.yml`) |
+| Simulated handset identity | `config_client.yml` `client` | `node_id`, `short_name`, and `long_name` (default long name: `BBS Test Client`) for `rsmesh-bbs_client.py` (see `example_config_client.yml`) |
 | Virtual BBS radio (mesh client) | `config_client.yml` `server` | `virtual_node_id`, `virtual_short_name`, and `virtual_long_name` (default long name: `RSMesh Virtual Radio`) for the in-process mock radio used by `rsmesh-bbs_client.py` |
 | Board name, superuser, event bus topic | `config.yml` `bbs` | Banner text, Urgent board permission, and PyPubSub topic for incoming radio packets (`eventbus_topic`, default `meshtastic.receive`) |
 | Urgent mesh alerts (local) | `config.yml` `bbs` `send_urgent_alert_local` | `true`/`false` — broadcast on primary channel when an Urgent bulletin is posted on this node (default `false`) |

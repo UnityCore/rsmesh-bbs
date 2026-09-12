@@ -11,7 +11,7 @@ client:
   # Four-character short name shown in BBS prompts and mail headers
   short_name: COFY
   # Full display name for the simulated handset
-  long_name: CLI Test User
+  long_name: BBS Test Client
 
 # Simulated BBS radio identity for in-process testing (no real mesh).
 server:

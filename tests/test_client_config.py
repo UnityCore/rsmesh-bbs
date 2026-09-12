@@ -40,7 +40,7 @@ class TestClientConfig:
         settings = get_client_settings(str(config_path))
         assert settings["node_id"] == "!0c0ffee0"
         assert settings["short_name"] == "COFY"
-        assert settings["long_name"] == "CLI Test User"
+        assert settings["long_name"] == "BBS Test Client"
 
     def test_get_client_settings_reads_long_name(self, tmp_path):
         config_path = tmp_path / "config_client.yml"
