@@ -260,6 +260,16 @@ class Module:
 
 **Module sync status:** `get_module_sync_status(module_id)` returns a `ModuleSyncStatus` dataclass (pending records, pending peers, per-peer flags). Use it from `{module_dir}_admin.py` to build a module-specific detail screen, or supply `sync_status_lines` on the registration for the core **Module Sync Status** view. The admin splash and **System Status** line shows `Sync alerts: RS version: N peers, Modules: N peers` where the module count is the number of distinct peers with pending module-owned records.
 
+**Inbound sync state (`record_sync_peers`):** the framework does not mark peers synced for you on inbound. Each module's `on_inbound_rs` handler decides when to call `mark_sync_peers_synced`. That call means "this peer already has this record key; skip outbound push on the next sync pass."
+
+- **Safe to mark on inbound** when receiving a record means you should not echo it back — for example a bulletin-style record with a global ID created elsewhere. If peer P sends record key `K`, marking `(K, P)` prevents a pointless round trip.
+- **Do not mark on inbound** when your BBS is the authoritative source for that record key and peers may send you their *view* of it. A peer echoing your data is not proof that they have your latest local copy.
+- **Always mark on successful outbound send** (as in the example above) so you do not retransmit the same payload every sync interval.
+
+The BBS List module (`modules/bbs_list/`) is the reference for this distinction. Each entry is keyed by BBS node hex; a sysop's own board is stored with `is_local=Y`. Inbound wire updates for local entries are ignored, and inbound ingest does **not** call `mark_sync_peers_synced` for them — only successful outbound sends mark peers synced. Without that rule, a peer sending your node hex back would mark the peer as synced and block your authoritative local entry from ever pushing outbound.
+
+Call `reset_record_sync_peers(record_type, record_key)` whenever local data changes and must be pushed again (for example after admin edit). The admin **List Unsynced Data** screen and background sync worker both rely on `record_sync_peers` state being accurate.
+
 Store module-owned data in the module directory (for example `ctx.path("events.db")`). Track pending sync with `record_sync_peers` and call `reset_record_sync_peers` when a local record changes.
 
 ### Optional admin UI
