@@ -80,6 +80,18 @@ def get_core_service_states():
     return {key: is_core_service_enabled(key) for key in CORE_SERVICE_KEYS}
 
 
+def format_core_services_status_line():
+    """Enabled core services for admin splash and System Status displays."""
+    enabled = [
+        CORE_SERVICE_LABELS[key]
+        for key in CORE_SERVICE_KEYS
+        if is_core_service_enabled(key)
+    ]
+    if enabled:
+        return f"Core Services: {', '.join(enabled)}"
+    return "Core Services: None"
+
+
 def is_core_menu_letter_enabled(letter):
     letter = (letter or "").upper()
     for menu_letter, cfg_key in CORE_MENU_LETTERS:

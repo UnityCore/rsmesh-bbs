@@ -4,6 +4,7 @@ from rsmesh_bbs.core_services import (
     CORE_CHANNELS_KEY,
     CORE_MAIL_KEY,
     ensure_core_services_config,
+    format_core_services_status_line,
     is_core_bulletins_enabled,
     is_core_mail_enabled,
     set_core_service_enabled,
@@ -40,6 +41,21 @@ class TestCoreServicesConfig:
         assert "[M]ail" not in body
         assert "[B]ulletins" in body
         assert "M[o]dules" in body
+
+    def test_format_core_services_status_line_all_enabled(self, temp_db):
+        _seed_core_services()
+        assert format_core_services_status_line() == "Core Services: Bulletins, Mail, Channels"
+
+    def test_format_core_services_status_line_partial(self, temp_db):
+        _seed_core_services()
+        set_core_service_enabled(CORE_MAIL_KEY, False)
+        assert format_core_services_status_line() == "Core Services: Bulletins, Channels"
+
+    def test_format_core_services_status_line_none_enabled(self, temp_db):
+        _seed_core_services()
+        for key in (CORE_BULLETINS_KEY, CORE_MAIL_KEY, CORE_CHANNELS_KEY):
+            set_core_service_enabled(key, False)
+        assert format_core_services_status_line() == "Core Services: None"
 
 
 class TestMainMenuBody:

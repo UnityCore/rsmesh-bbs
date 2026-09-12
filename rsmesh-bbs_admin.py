@@ -68,6 +68,7 @@ from rsmesh_bbs.core_services import (
     CORE_SERVICE_KEYS,
     CORE_SERVICE_LABELS,
     ensure_core_services_config,
+    format_core_services_status_line,
     is_core_bulletins_enabled,
     is_core_channels_enabled,
     is_core_mail_enabled,
@@ -188,6 +189,8 @@ def _build_system_status_content_lines(include_sync_peers=True):
         else:
             content_lines.append("Sync peers: none")
     content_lines.append(_format_rs_version_alert_summary(status['rs_version_alert_count']))
+    content_lines.append("")
+    content_lines.append(format_core_services_status_line())
 
     return content_lines
 
@@ -205,11 +208,10 @@ def show_splash_screen():
     console.print()
     print_bold(_center_line(f"****    {get_board_name()}    ****"))
     console.print()
-    console.print()
     status_lines = _build_system_status_content_lines(include_sync_peers=False)
     _print_indented_status_lines(status_lines)
 
-    lines_used = PAGE_HEADER_LINE_COUNT + 4 + len(status_lines)
+    lines_used = PAGE_HEADER_LINE_COUNT + 3 + len(status_lines)
     prompt_continue(lines_used)
 
 def begin_form_screen(page_title):

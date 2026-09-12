@@ -479,6 +479,7 @@ Shown once at startup before the main menu.
 - Total mail / unread mail
 - Pending reconcile counts (bulletins, channels)
 - Sync alerts: RS version peer count
+- Core Services: comma-separated list of enabled services (`Bulletins`, `Mail`, `Channels`), or `None` when all are off
 
 **Prompt:** `Press Enter to continue...`
 
@@ -501,7 +502,7 @@ Option numbers after **Administration** are assigned in order: enabled core serv
 
 ## System Status
 
-Read-only summary of the BBS database. Shows the same counts as the splash screen, plus a comma-separated list of configured sync peer node IDs (or `none`).
+Read-only summary of the BBS database. Shows the same counts as the splash screen, plus a comma-separated list of configured sync peer node IDs (or `none`), and the enabled core services line.
 
 Paginated view-only. Use `N` / `P` to move between pages, Enter or `X` to return.
 
