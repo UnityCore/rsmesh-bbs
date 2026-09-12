@@ -127,12 +127,12 @@ class TestCoreServicesSchedule:
             "!sender", "SNDR", "!recipient", "Hello", "Body", None, None, defer_sync=True,
         )
 
-        bulletins, mail_rows, channels = db_operations.get_unsynced_records()
+        bulletins, mail_rows, channels, _modules = db_operations.get_unsynced_records()
         assert bulletins
         assert mail_rows
 
         set_core_service_enabled(CORE_BULLETINS_KEY, False)
         set_core_service_enabled(CORE_MAIL_KEY, False)
-        bulletins, mail_rows, channels = db_operations.get_unsynced_records()
+        bulletins, mail_rows, channels, _modules = db_operations.get_unsynced_records()
         assert bulletins == []
         assert mail_rows == []

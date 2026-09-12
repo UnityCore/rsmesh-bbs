@@ -2,8 +2,11 @@ from rsmesh_bbs import db_operations
 from rsmesh_bbs.message_processing import _process_rs_sync_message
 from rsmesh_bbs.mock_interface import MockMeshInterface
 from rsmesh_bbs.module_loader import ModuleManager
+from types import SimpleNamespace
+
 from rsmesh_bbs.module_sync import (
     ModuleSyncRegistration,
+    get_module_unsynced_records,
     get_pending_sync_peers,
     mark_sync_peers_synced,
     reset_record_sync_peers,
@@ -114,6 +117,67 @@ class TestModuleSyncOutbound:
         assert calls == []
 
 
+class TestModuleSyncListUnsynced:
+    def test_get_module_unsynced_records_lists_pending_records(self, temp_db):
+        db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1", bbs_name="Peer A")
+        db_operations.add_sync_peer("!peer_b", sync_protocol="rsv1", bbs_name="Peer B")
+
+        manager = ModuleManager()
+        interface = SimpleNamespace(module_manager=manager)
+        manager.register_sync(
+            1,
+            ModuleSyncRegistration(
+                module_id=1,
+                record_type="module:test",
+                list_unsynced=lambda: [("event-1", "Board meeting")],
+            ),
+        )
+
+        rows = get_module_unsynced_records(interface)
+
+        assert len(rows) == 1
+        assert rows[0][0] == "Node Info"
+        assert rows[0][1] == "event-1"
+        assert rows[0][2] == "Board meeting"
+        assert set(rows[0][3]) == {"Peer A", "Peer B"}
+
+    def test_get_module_unsynced_records_omits_fully_synced(self, temp_db):
+        db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1", bbs_name="Peer A")
+
+        manager = ModuleManager()
+        interface = SimpleNamespace(module_manager=manager)
+        manager.register_sync(
+            1,
+            ModuleSyncRegistration(
+                module_id=1,
+                record_type="module:test",
+                list_unsynced=lambda: [("event-1", "Board meeting")],
+            ),
+        )
+        mark_sync_peers_synced("module:test", "event-1", db_operations.get_sync_peers())
+
+        assert get_module_unsynced_records(interface) == []
+
+    def test_get_unsynced_records_includes_module_rows(self, temp_db):
+        db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1")
+
+        manager = ModuleManager()
+        interface = SimpleNamespace(module_manager=manager)
+        manager.register_sync(
+            1,
+            ModuleSyncRegistration(
+                module_id=1,
+                record_type="module:test",
+                list_unsynced=lambda: [("event-1", "Board meeting")],
+            ),
+        )
+
+        _bulletins, _mail, _channels, modules = db_operations.get_unsynced_records(interface)
+
+        assert len(modules) == 1
+        assert modules[0][1] == "event-1"
+
+
 class TestModuleSyncHelpers:
     def test_mark_and_reset_record_sync_peers(self, temp_db):
         db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1")
@@ -121,13 +185,21 @@ class TestModuleSyncHelpers:
         peers = db_operations.get_sync_peers()
         peer_a = peers[0]
 
-        pending = get_pending_sync_peers("module:test", "key1", peers)
+        interface = MockMeshInterface()
+        interface.module_manager = ModuleManager()
+        _register_sync(
+            interface.module_manager,
+            1,
+            record_type="module:test",
+        )
+
+        pending = get_pending_sync_peers("module:test", "key1", peers, interface)
         assert len(pending) == 2
 
         mark_sync_peers_synced("module:test", "key1", [peer_a])
-        pending = get_pending_sync_peers("module:test", "key1", peers)
+        pending = get_pending_sync_peers("module:test", "key1", peers, interface)
         assert len(pending) == 1
 
         reset_record_sync_peers("module:test", "key1")
-        pending = get_pending_sync_peers("module:test", "key1", peers)
+        pending = get_pending_sync_peers("module:test", "key1", peers, interface)
         assert len(pending) == 2

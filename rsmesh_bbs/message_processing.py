@@ -149,7 +149,7 @@ def _inbound_sync_allowed(sender_node_id, interface, record_type):
         )
         return False
     peer = get_sync_peer_by_bbs_node(sender_node_id, getattr(interface, 'sync_peers', None))
-    if not peer_accepts_inbound_sync(peer, record_type):
+    if not peer_accepts_inbound_sync(peer, record_type, interface):
         logging.info(
             f"Ignoring inbound {record_type} sync from {sender_node_id}; "
             f"ingest disabled for this peer."

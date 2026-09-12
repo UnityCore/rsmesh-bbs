@@ -84,6 +84,93 @@ def _resolve_peer_id(peer):
     return row[0] if row else None
 
 
+def get_sync_peer_module_flags(peer_id, module_id):
+    try:
+        peer_id = int(peer_id)
+        module_id = int(module_id)
+    except (TypeError, ValueError):
+        return 'Y', 'Y'
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute(
+        "SELECT sync_out, ingest_in FROM sync_peer_modules "
+        "WHERE peer_id = ? AND module_id = ?",
+        (peer_id, module_id),
+    )
+    row = c.fetchone()
+    if row is None:
+        return 'Y', 'Y'
+    return _normalize_sync_flag(row[0]), _normalize_sync_flag(row[1])
+
+
+def set_sync_peer_module_flags(peer_id, module_id, sync_out='Y', ingest_in='Y'):
+    try:
+        peer_id = int(peer_id)
+        module_id = int(module_id)
+    except (TypeError, ValueError):
+        return False
+    sync_out = _normalize_sync_flag(sync_out)
+    ingest_in = _normalize_sync_flag(ingest_in)
+    if sync_out == 'Y' and ingest_in == 'Y':
+        return delete_sync_peer_module_flags(peer_id, module_id)
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute(
+        "INSERT INTO sync_peer_modules (peer_id, module_id, sync_out, ingest_in) "
+        "VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(peer_id, module_id) DO UPDATE SET "
+        "sync_out = excluded.sync_out, ingest_in = excluded.ingest_in",
+        (peer_id, module_id, sync_out, ingest_in),
+    )
+    conn.commit()
+    return True
+
+
+def delete_sync_peer_module_flags(peer_id, module_id):
+    try:
+        peer_id = int(peer_id)
+        module_id = int(module_id)
+    except (TypeError, ValueError):
+        return False
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute(
+        "DELETE FROM sync_peer_modules WHERE peer_id = ? AND module_id = ?",
+        (peer_id, module_id),
+    )
+    conn.commit()
+    return c.rowcount > 0
+
+
+def clear_sync_peer_module_flags(peer_id):
+    try:
+        peer_id = int(peer_id)
+    except (TypeError, ValueError):
+        return False
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("DELETE FROM sync_peer_modules WHERE peer_id = ?", (peer_id,))
+    conn.commit()
+    return True
+
+
+def get_sync_peer_module_flags_for_peer(peer_id):
+    try:
+        peer_id = int(peer_id)
+    except (TypeError, ValueError):
+        return {}
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute(
+        "SELECT module_id, sync_out, ingest_in FROM sync_peer_modules WHERE peer_id = ?",
+        (peer_id,),
+    )
+    return {
+        int(row[0]): (_normalize_sync_flag(row[1]), _normalize_sync_flag(row[2]))
+        for row in c.fetchall()
+    }
+
+
 def _get_synced_peer_ids(record_type, record_key):
     conn = get_db_connection()
     c = conn.cursor()
@@ -122,8 +209,8 @@ def _normalize_sync_flag(value, default='Y'):
     return 'Y' if normalized == 'Y' else 'N'
 
 
-def _get_pending_peers(record_type, record_key, all_peers):
-    eligible_peers = filter_peers_for_record_type(all_peers, record_type)
+def _get_pending_peers(record_type, record_key, all_peers, interface=None):
+    eligible_peers = filter_peers_for_record_type(all_peers, record_type, interface)
     synced_peer_ids = _get_synced_peer_ids(record_type, record_key)
     pending = []
     for peer in eligible_peers:
@@ -244,10 +331,10 @@ def get_sync_status_label(record_type, record_key):
     return f'{synced_count}/{peer_count}'
 
 
-def _get_pending_peer_labels(record_type, record_key, all_peers):
+def _get_pending_peer_labels(record_type, record_key, all_peers, interface=None):
     synced_peer_ids = _get_synced_peer_ids(record_type, record_key)
     labels = []
-    for peer in filter_peers_for_record_type(all_peers, record_type):
+    for peer in filter_peers_for_record_type(all_peers, record_type, interface):
         peer_id = _resolve_peer_id(peer)
         if peer_id is None or peer_id not in synced_peer_ids:
             name = peer[2] if len(peer) > 2 and peer[2] else peer[1]
@@ -264,8 +351,8 @@ def _mark_record_synced(table, id_column, id_value):
     conn.commit()
 
 
-def _sync_record_to_peers(record_type, record_key, id_column, id_value, peers, send_fn):
-    pending = _get_pending_peers(record_type, record_key, peers)
+def _sync_record_to_peers(record_type, record_key, id_column, id_value, peers, send_fn, interface=None):
+    pending = _get_pending_peers(record_type, record_key, peers, interface)
     if not pending:
         _update_aggregate_synced(record_type, id_column, id_value, record_key)
         return True
@@ -283,7 +370,7 @@ def _sync_record_to_peers(record_type, record_key, id_column, id_value, peers, s
         _mark_peers_synced(record_type, record_key, resolved_ids)
 
     _update_aggregate_synced(record_type, id_column, id_value, record_key)
-    remaining = _get_pending_peers(record_type, record_key, peers)
+    remaining = _get_pending_peers(record_type, record_key, peers, interface)
     return not remaining
 
 
@@ -302,10 +389,10 @@ def _complete_local_sync(table, id_column, id_value, record_key, sync_peers, int
     if not peers:
         _mark_record_synced(table, id_column, id_value)
         return
-    if _sync_record_to_peers(table, record_key, id_column, id_value, peers, send_fn):
+    if _sync_record_to_peers(table, record_key, id_column, id_value, peers, send_fn, interface):
         logging.info(f"Synced {table} {record_key} to all peers.")
     else:
-        pending_labels = _get_pending_peer_labels(table, record_key, peers)
+        pending_labels = _get_pending_peer_labels(table, record_key, peers, interface)
         logging.warning(
             f"Sync not complete for {table} {record_key}; pending peers: {', '.join(pending_labels)}."
         )
@@ -362,7 +449,9 @@ def sync_pending_records(sync_peers, interface):
                     pinned=pinned or "N",
                 )
 
-            if _sync_record_to_peers('bulletins', unique_id, 'unique_id', unique_id, peers, _send_bulletin):
+            if _sync_record_to_peers(
+                'bulletins', unique_id, 'unique_id', unique_id, peers, _send_bulletin, interface,
+            ):
                 logging.info(f"Synced bulletin {unique_id} to all peers.")
             else:
                 logging.warning(f"Bulletin {unique_id} sync incomplete; will retry pending peers.")
@@ -381,7 +470,9 @@ def sync_pending_records(sync_peers, interface):
                     subject, content, unique_id, pending_peers, interface,
                 )
 
-            if _sync_record_to_peers('mail', unique_id, 'unique_id', unique_id, peers, _send_mail):
+            if _sync_record_to_peers(
+                'mail', unique_id, 'unique_id', unique_id, peers, _send_mail, interface,
+            ):
                 logging.info(f"Synced mail {unique_id} to all peers.")
             else:
                 logging.warning(f"Mail {unique_id} sync incomplete; will retry pending peers.")
@@ -399,7 +490,9 @@ def sync_pending_records(sync_peers, interface):
                     name, psk, pending_peers, interface, unique_id=unique_id
                 )
 
-            if _sync_record_to_peers('channels', unique_id, 'unique_id', unique_id, peers, _send_channel):
+            if _sync_record_to_peers(
+                'channels', unique_id, 'unique_id', unique_id, peers, _send_channel, interface,
+            ):
                 logging.info(f"Synced channel {name} to all peers.")
             else:
                 logging.warning(f"Channel {name} sync incomplete; will retry pending peers.")
@@ -432,7 +525,7 @@ def _sync_module_pending_records(peers, interface):
             )
 
 
-def get_unsynced_records():
+def get_unsynced_records(interface=None):
     conn = get_db_connection()
     c = conn.cursor()
     peers = get_sync_peers()
@@ -472,7 +565,10 @@ def get_unsynced_records():
             pending = _get_pending_peer_labels('channels', row[3], peers)
             channels.append((*row, pending))
 
-    return bulletins, mail_rows, channels
+    from .module_sync import get_module_unsynced_records
+
+    modules = get_module_unsynced_records(interface)
+    return bulletins, mail_rows, channels, modules
 
 
 def get_system_status():
@@ -619,6 +715,15 @@ def initialize_database(quiet=False):
                     PRIMARY KEY (record_type, record_key, peer_id),
                     FOREIGN KEY (peer_id) REFERENCES sync_peers(id) ON DELETE CASCADE
                 )''')
+    c.execute('''CREATE TABLE IF NOT EXISTS sync_peer_modules (
+                    peer_id INTEGER NOT NULL,
+                    module_id INTEGER NOT NULL,
+                    sync_out TEXT NOT NULL DEFAULT 'Y',
+                    ingest_in TEXT NOT NULL DEFAULT 'Y',
+                    PRIMARY KEY (peer_id, module_id),
+                    FOREIGN KEY (peer_id) REFERENCES sync_peers(id) ON DELETE CASCADE,
+                    FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE
+                )''')
     c.execute('''CREATE TABLE IF NOT EXISTS mesh_nodes (
                     node_id TEXT PRIMARY KEY,
                     short_name TEXT,
@@ -688,6 +793,8 @@ def _ensure_database_indexes(c):
         "CREATE INDEX IF NOT EXISTS idx_sync_peers_protocol ON sync_peers(sync_protocol)",
         "CREATE INDEX IF NOT EXISTS idx_record_sync_peers_pending "
         "ON record_sync_peers(record_type, record_key, synced)",
+        "CREATE INDEX IF NOT EXISTS idx_sync_peer_modules_module "
+        "ON sync_peer_modules(module_id)",
         "CREATE INDEX IF NOT EXISTS idx_mesh_nodes_short_name ON mesh_nodes(short_name)",
         "CREATE INDEX IF NOT EXISTS idx_mesh_nodes_last_heard ON mesh_nodes(last_heard)",
     )
@@ -1593,6 +1700,8 @@ def update_sync_peer(
         )
         conn.commit()
         if c.rowcount > 0:
+            if sync_protocol == 'tc2':
+                clear_sync_peer_module_flags(peer_id)
             if enabled == 'N':
                 _clear_peer_record_sync(peer_id)
             else:

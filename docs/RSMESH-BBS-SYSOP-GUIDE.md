@@ -660,6 +660,8 @@ Configure remote BBS nodes for bulletin, mail, channel, and mesh-node synchroniz
 
 **Line 3:** `Mail: {Y/N}  Mesh nodes: {Y/N}  Last heard: {relative time}`
 
+**Line 4 (optional, rsv1 only):** `Modules: {Name} out=N, {Name} in=N` — shown only when a module sync restriction is set for this peer (default allow omits the line).
+
 RS version alerts appear when a peer sends a sync wire version that does not match the configured protocol.
 
 #### Add / Edit Sync Peer — prompts
@@ -676,6 +678,10 @@ RS version alerts appear when a peer sends a sync wire version that does not mat
 | `Ingest bulletins in (Y/N) [Y]:` | Y | Accept bulletins from this peer |
 | `Ingest channels in (Y/N) [Y]:` | Y | Accept channel rows from this peer (always ingested as unpublished) |
 | `Enabled (Y/N) [Y]:` | Y | Master on/off for this peer; **`N`** skips all outbound and inbound sync |
+| `{Module name} sync out (Y/N) [Y]:` | Y | **rsv1 only** — send module sync to this peer (one prompt per module that registers sync) |
+| `{Module name} ingest in (Y/N) [Y]:` | Y | **rsv1 only** — accept module sync from this peer |
+
+Module sync prompts appear only when the peer protocol is **`rsv1`** and at least one enabled module registers sync hooks. If both flags are left at **`Y`**, no per-peer row is stored (default allow). **`tc2`** peers show `Module sync: N/A (rsv1 only).`
 
 **Protocol behavior:**
 - **`tc2`** — TC²-compatible pipe-delimited sync (`BULLETIN|`, `MAIL|`, etc.). Maintains TC²-BBS-mesh conventions: bulletin sync is **create-only** (duplicate `unique_id` ingests are skipped; pin/edit updates are **not** sent). Mesh node sync is forced to **`N`**. Messages must fit in one 200-byte packet.
@@ -688,6 +694,8 @@ Duplicate `bbs_node` values are rejected on add.
 Read-only report of records not yet synced to all eligible peers. Grouped into **Bulletins**, **Mail**, and **Channels** sections.
 
 Each entry shows ID, key fields, sync status (`pending sync` or `pending delete sync` for deleted bulletins), and **Pending peers** (peer names or `all peers`).
+
+**Modules** section lists module-owned records when an enabled module registers a `list_unsynced` hook and the record still has pending rsv1 peers. Each entry shows module name, record key, label, and pending peers.
 
 ### Modules
 

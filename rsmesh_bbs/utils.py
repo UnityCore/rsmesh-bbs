@@ -383,9 +383,34 @@ def peer_enabled(peer):
     return (peer[PEER_ENABLED_INDEX] or 'Y').strip().upper() == 'Y'
 
 
-def peer_sync_enabled(peer, record_type):
+def _peer_id_from_peer(peer):
+    if peer is None:
+        return None
+    peer_id = peer[0]
+    if peer_id is not None:
+        return peer_id
+    from .db_operations import _peer_id_for_bbs_node
+    return _peer_id_for_bbs_node(sync_peer_bbs_node(peer))
+
+
+def _module_id_for_record_type(record_type, interface):
+    from .module_sync import module_id_for_record_type
+    return module_id_for_record_type(record_type, interface)
+
+
+def peer_sync_enabled(peer, record_type, interface=None):
     if not peer_enabled(peer):
         return False
+    module_id = _module_id_for_record_type(record_type, interface)
+    if module_id is not None:
+        if not is_rs_sync_protocol(sync_peer_protocol(peer)):
+            return False
+        from .db_operations import get_sync_peer_module_flags
+        peer_id = _peer_id_from_peer(peer)
+        if peer_id is None:
+            return False
+        sync_out, _ingest_in = get_sync_peer_module_flags(peer_id, module_id)
+        return sync_out == 'Y'
     index = PEER_SYNC_FLAG_INDEX.get(record_type)
     if index is None:
         return True
@@ -394,9 +419,19 @@ def peer_sync_enabled(peer, record_type):
     return (peer[index] or 'Y').strip().upper() == 'Y'
 
 
-def peer_ingest_enabled(peer, record_type):
+def peer_ingest_enabled(peer, record_type, interface=None):
     if record_type == 'mail':
-        return peer_sync_enabled(peer, 'mail')
+        return peer_sync_enabled(peer, 'mail', interface)
+    module_id = _module_id_for_record_type(record_type, interface)
+    if module_id is not None:
+        if not is_rs_sync_protocol(sync_peer_protocol(peer)):
+            return False
+        from .db_operations import get_sync_peer_module_flags
+        peer_id = _peer_id_from_peer(peer)
+        if peer_id is None:
+            return False
+        _sync_out, ingest_in = get_sync_peer_module_flags(peer_id, module_id)
+        return ingest_in == 'Y'
     index = PEER_INGEST_FLAG_INDEX.get(record_type)
     if index is None:
         return True
@@ -405,12 +440,12 @@ def peer_ingest_enabled(peer, record_type):
     return (peer[index] or 'Y').strip().upper() == 'Y'
 
 
-def peer_accepts_inbound_sync(peer, record_type):
+def peer_accepts_inbound_sync(peer, record_type, interface=None):
     if peer is None or not peer_enabled(peer):
         return False
     if record_type == 'mesh_nodes':
-        return peer_sync_enabled(peer, 'mesh_nodes')
-    return peer_ingest_enabled(peer, record_type)
+        return peer_sync_enabled(peer, 'mesh_nodes', interface)
+    return peer_ingest_enabled(peer, record_type, interface)
 
 
 def get_sync_peer_by_bbs_node(bbs_node, sync_peers=None):
@@ -425,8 +460,8 @@ def get_sync_peer_by_bbs_node(bbs_node, sync_peers=None):
     return None
 
 
-def filter_peers_for_record_type(peers, record_type):
-    return [peer for peer in peers if peer_sync_enabled(peer, record_type)]
+def filter_peers_for_record_type(peers, record_type, interface=None):
+    return [peer for peer in peers if peer_sync_enabled(peer, record_type, interface)]
 
 
 def sync_peer_nodes(sync_peers_or_nodes):

@@ -315,6 +315,21 @@ def _create_rsmesh_support_tables(c):
                created TEXT NOT NULL
            )"""
     )
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS sync_peer_modules (
+               peer_id INTEGER NOT NULL,
+               module_id INTEGER NOT NULL,
+               sync_out TEXT NOT NULL DEFAULT 'Y',
+               ingest_in TEXT NOT NULL DEFAULT 'Y',
+               PRIMARY KEY (peer_id, module_id),
+               FOREIGN KEY (peer_id) REFERENCES sync_peers(id) ON DELETE CASCADE,
+               FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE
+           )"""
+    )
+    c.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sync_peer_modules_module "
+        "ON sync_peer_modules(module_id)"
+    )
 
 
 def _mail_recipient_is_nullable(c):

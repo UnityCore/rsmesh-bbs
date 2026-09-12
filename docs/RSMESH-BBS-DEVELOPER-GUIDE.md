@@ -233,10 +233,13 @@ class Module:
 | `wire_types` | RS envelope types owned by this module (`RS\|1\|TYPE\|{json}`) |
 | `on_inbound_rs` | Called for RS wire messages when the module is enabled |
 | `sync_pending` | Called from the background sync worker with all enabled peers |
+| `list_unsynced` | Optional callback returning `(record_key, label)` pairs for admin **List Unsynced Data** |
 
-**Gating:** inbound and outbound module sync are skipped when the module is disabled in SysAdmin. Peer ingest/outbound flags for module `record_type` values default to allowed in Phase A (dedicated peer flags are planned for a later phase).
+**Gating:** inbound and outbound module sync are skipped when the module is disabled in SysAdmin. Per-peer module flags are configured under **Administration → Sync Peers** (rsv1 only).
 
-**Helpers** in `rsmesh_bbs.module_sync`: `get_pending_sync_peers`, `mark_sync_peers_synced`, `reset_record_sync_peers`, `decode_module_rs_payload`.
+**Helpers** in `rsmesh_bbs.module_sync`: `get_pending_sync_peers`, `mark_sync_peers_synced`, `reset_record_sync_peers`, `decode_module_rs_payload`, `get_module_unsynced_records`.
+
+**List Unsynced:** implement `list_unsynced` to return keys the module still needs to push. The admin tool shows only records with pending peers according to `record_sync_peers` and peer eligibility.
 
 Store module-owned data in the module directory (for example `ctx.path("events.db")`). Track pending sync with `record_sync_peers` and call `reset_record_sync_peers` when a local record changes.
 

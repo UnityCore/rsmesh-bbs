@@ -27,6 +27,22 @@ Module sync (Phase A)
   - Helpers in rsmesh_bbs.module_sync for record_sync_peers pending/synced state
   - Developer guide: Peer sync (Phase A) section
 
+Module sync (Phase B1/B2)
+  - sync_peer_modules table for per-peer module sync_out and ingest_in flags
+  - Defaults: no row means allow; tc2 peers cannot participate in module sync
+  - peer_sync_enabled / peer_accepts_inbound_sync honor module flags when interface is provided
+
+Module sync (Phase B3)
+  - Admin Add/Edit Sync Peer prompts for per-module sync out and ingest in (rsv1 peers)
+  - Lists only modules that register sync hooks at load time
+
+Module sync (Phase B4)
+  - List Sync Peers shows per-module sync restrictions for rsv1 peers (out=N / in=N only)
+
+Module sync (Phase B5)
+  - list_unsynced registration hook for module-owned unsynced records
+  - List Unsynced Data includes a Modules section when hooks report pending peers
+
 Mesh client (rsmesh-bbs_client.py)
   - --verbose / -v: print (no reply) when the BBS sends no response (default silent)
   - config_client.yml server section: virtual_node_id, virtual_short_name, virtual_long_name

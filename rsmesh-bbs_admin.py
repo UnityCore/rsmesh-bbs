@@ -66,8 +66,13 @@ from rsmesh_bbs.db_operations import (
     purge_mesh_nodes,
     export_mesh_nodes_to_csv,
     import_mesh_nodes_from_csv,
+    _peer_id_for_bbs_node,
+    get_module_by_id,
+    get_sync_peer_module_flags_for_peer,
+    set_sync_peer_module_flags,
 )
 from rsmesh_bbs.module_loader import load_module_admin, module_admin_available
+from rsmesh_bbs.module_sync import get_registered_module_sync_rows
 from rsmesh_bbs.backup import create_application_backup
 from rsmesh_bbs.core_services import (
     CORE_SERVICE_KEYS,
@@ -1260,6 +1265,59 @@ def _sync_peer_alert_field(peer):
     return f"Alert: received RS v{seen}"
 
 
+def _prompt_sync_peer_module_flags(peer_id, sync_protocol):
+    protocol = (sync_protocol or "").strip().lower()
+    if protocol != "rsv1":
+        print("Module sync: N/A (rsv1 only).")
+        return
+    registrations = get_registered_module_sync_rows()
+    if not registrations:
+        return
+    existing = get_sync_peer_module_flags_for_peer(peer_id)
+    print_bold("Module sync (rsv1 only; Enter keeps current value):")
+    for _registration, module_row in registrations:
+        module_id = module_row[0]
+        module_name = module_row[1]
+        sync_out, ingest_in = existing.get(module_id, ("Y", "Y"))
+        sync_out = _normalize_yn(
+            input_bold(f"  {module_name} sync out (Y/N) [{sync_out}]: "),
+            sync_out,
+        )
+        ingest_in = _normalize_yn(
+            input_bold(f"  {module_name} ingest in (Y/N) [{ingest_in}]: "),
+            ingest_in,
+        )
+        set_sync_peer_module_flags(peer_id, module_id, sync_out, ingest_in)
+
+
+def _sync_peer_module_restriction_line(peer, module_rows):
+    if len(peer) < 4:
+        return None
+    if (peer[3] or "").strip().lower() != "rsv1":
+        return None
+    peer_id = peer[0]
+    flags = get_sync_peer_module_flags_for_peer(peer_id)
+    if not flags:
+        return None
+    module_names = {row[0]: row[1] for _registration, row in module_rows}
+    parts = []
+    for module_id, (sync_out, ingest_in) in sorted(
+        flags.items(),
+        key=lambda item: (module_names.get(item[0]) or f"Module {item[0]}").lower(),
+    ):
+        name = module_names.get(module_id)
+        if not name:
+            module_row = get_module_by_id(module_id)
+            name = module_row[1] if module_row else f"Module {module_id}"
+        if sync_out == "N":
+            parts.append(f"{name} out=N")
+        if ingest_in == "N":
+            parts.append(f"{name} in=N")
+    if not parts:
+        return None
+    return "  " + join_display_fields(f"Modules: {', '.join(parts)}")
+
+
 def _sync_peer_flag_lines(peer, last_heard_label=None):
     if len(peer) < 8:
         sync_bulletins, sync_mail, sync_channels = 'Y', 'Y', 'Y'
@@ -1291,6 +1349,7 @@ def _sync_peer_lines(rows):
     if not rows:
         return []
     lines = []
+    module_rows = get_registered_module_sync_rows()
     for peer in rows:
         peer_id, bbs_node, bbs_name, sync_protocol, last_heard = peer[:5]
         heard = format_relative_time(normalize_sync_peer_last_heard(last_heard))
@@ -1310,6 +1369,9 @@ def _sync_peer_lines(rows):
             fields.append(alert)
         lines.append(join_display_fields(*fields))
         lines.extend(_sync_peer_flag_lines(peer, heard))
+        module_line = _sync_peer_module_restriction_line(peer, module_rows)
+        if module_line:
+            lines.append(module_line)
     return lines
 
 def list_sync_peers():
@@ -1345,6 +1407,9 @@ def add_sync_peer_entry():
         ingest_channels=ingest_channels,
         enabled=enabled,
     ):
+        peer_id = _peer_id_for_bbs_node(bbs_node)
+        if peer_id is not None:
+            _prompt_sync_peer_module_flags(peer_id, sync_protocol)
         _finish_action_message(
             f"Sync peer {bbs_node} added with protocol {sync_protocol}.",
             "Add Sync Peer",
@@ -1432,6 +1497,7 @@ def edit_sync_peer_entry():
         ingest_channels=ingest_channels,
         enabled=enabled,
     ):
+        _prompt_sync_peer_module_flags(peer_id, sync_protocol)
         _finish_action_message(f"Sync peer {peer_id} updated.", "Edit Sync Peer")
     else:
         _finish_action_message("Could not update sync peer.", "Edit Sync Peer")
@@ -1733,8 +1799,8 @@ def review_reconcile_channels():
     else:
         _finish_action_message("Invalid action.", "Review Reconcile Channels")
 
-def _unsynced_lines(bulletins, mail_rows, channels):
-    total = len(bulletins) + len(mail_rows) + len(channels)
+def _unsynced_lines(bulletins, mail_rows, channels, modules=()):
+    total = len(bulletins) + len(mail_rows) + len(channels) + len(modules)
     if total == 0:
         return []
 
@@ -1794,13 +1860,28 @@ def _unsynced_lines(bulletins, mail_rows, channels):
     else:
         lines.append(f"{section_indent}Channels: none")
 
+    if modules:
+        lines.append(f"{section_indent}Modules:")
+        for module_name, record_key, label, pending in modules:
+            pending_text = join_display_fields(*pending) if pending else "all peers"
+            lines.append(
+                entry_indent + join_display_fields(
+                    f"Module: {module_name}",
+                    f"Key: {record_key}",
+                    f"Label: {label}",
+                    f"Pending peers: {pending_text}",
+                )
+            )
+    else:
+        lines.append(f"{section_indent}Modules: none")
+
     return lines
 
 def list_unsynced_data():
-    bulletins, mail_rows, channels = get_unsynced_records()
+    bulletins, mail_rows, channels, modules = get_unsynced_records()
     paginate_display(
         "List Unsynced Data",
-        _unsynced_lines(bulletins, mail_rows, channels),
+        _unsynced_lines(bulletins, mail_rows, channels, modules),
         empty_message="No unsynced records found.",
     )
     return False
