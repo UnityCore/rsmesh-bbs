@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .db_operations import get_modules, get_module_by_id
+from .module_sync import ModuleSyncRegistration, _CORE_RS_WIRE_TYPES
 
 APP_ROOT = Path(__file__).resolve().parent.parent
 MODULES_DIR = APP_ROOT / "modules"
@@ -84,12 +85,18 @@ class ModuleContext:
         if self._manager is not None:
             self._manager.register_schedule(self.id, name, interval_minutes, callback)
 
+    def register_sync(self, registration: ModuleSyncRegistration):
+        if self._manager is not None:
+            self._manager.register_sync(self.id, registration)
+
 
 class ModuleManager:
     def __init__(self):
         self._instances = {}
         self._services = {}
         self._schedules = []
+        self._sync_registrations: list[ModuleSyncRegistration] = []
+        self._sync_wire_types: dict[str, ModuleSyncRegistration] = {}
 
     def register_service(self, name, service):
         self._services[name] = service
@@ -102,10 +109,35 @@ class ModuleManager:
             ScheduleTask(int(module_id), name, int(interval_minutes), callback)
         )
 
+    def register_sync(self, module_id, registration: ModuleSyncRegistration):
+        registration.module_id = int(module_id)
+        self._sync_registrations.append(registration)
+        for wire_type in registration.normalized_wire_types():
+            if wire_type in _CORE_RS_WIRE_TYPES:
+                logging.warning(
+                    "Module %s cannot register reserved RS wire type %s",
+                    module_id,
+                    wire_type,
+                )
+                continue
+            self._sync_wire_types[wire_type] = registration
+
+    def get_sync_registrations(self):
+        return list(self._sync_registrations)
+
+    def lookup_sync_by_wire_type(self, msg_type):
+        return self._sync_wire_types.get((msg_type or "").strip().upper())
+
+    def is_module_sync_enabled(self, module_id):
+        row = get_module_by_id(module_id)
+        return row is not None and row[4] == "Y"
+
     def load_modules(self, interface=None):
         self._instances.clear()
         self._services.clear()
         self._schedules.clear()
+        self._sync_registrations.clear()
+        self._sync_wire_types.clear()
         for row in get_modules(enabled_only=False):
             instance = self._load_module_instance(row)
             if instance is None:

@@ -8,7 +8,9 @@ Status summary (2026-09-12)
     per-menu module key validation, deferred admin regen, sysop guide)
   - Admin status displays: done (splash/System Status core services line; tighter banner spacing)
   - Admin System Configuration refactor: done (section menus, required-key seeding)
-  - Module sync framework: not started
+  - Mesh client virtual radio config: done (config_client.yml server section; sysop guide)
+  - Module sync framework Phase A: done (registration API, inbound/outbound dispatch)
+  - Module sync framework Phase B/C: not started
   - Device Blacklist: not started (moved to 1.2 backlog below)
 
 - Core Services (operator toggles for Bulletins, Mail, Channels) [DONE - Phase A]
@@ -62,33 +64,28 @@ Status summary (2026-09-12)
     - Core Services / mail layout / suppress_modules_menu excluded from this screen
     - Remaining (optional): type-aware editors; module-registered sys_config keys
 
-- Module sync capability (framework extension) [NOT STARTED]
-    - Bulletins, Mail, and Channels remain core sync types (tc2/rsv1 wire formats unchanged)
-    - Modules today: mesh menus, schedules, register_service only — no sync hooks
-    - Goal: let enabled modules register optional sync participation without moving core
-      services into modules (Channels stays core for 1.1)
-    - Module registration (at on_load or via ModuleManager), e.g.:
-      - sync_record_type id (module-owned data; may use module-local DB like node_info)
-      - rsv1 wire message type(s) and encode/decode handlers (rsv1 first; tc2 optional later)
-      - inbound ingest handler (called from message_processing when peer + module enabled)
-      - outbound sync handler for pending records (called from sync_pending_records worker)
-      - optional delete/reconcile handler if the module needs peer delete semantics
-    - Gating:
-      - Ignore module sync ingest when module disabled (same idea as core service off)
-      - Respect sync peer flags where applicable; module may define peer flag names or use
-        a generic modules sync enable on the peer row (design TBD)
-    - record_sync_peers / synced status:
-      - Extend or generalize beyond SYNCED_TABLES for module record types, or module
-        stores sync state in its own DB with a documented contract
-    - Admin tool:
-      - List Unsynced Data: include module-registered types when module enabled
+- Mesh client virtual radio config [DONE]
+    - config_client.yml server section: virtual_node_id, virtual_short_name, virtual_long_name
+    - Defaults: !aabbcc00, BBS0, RSMesh Virtual Radio; node number derived from virtual_node_id
+    - client.long_name default: BBS Test Client (example_config_client.yml)
+    - rsmesh-bbs_client.py reads server settings; CLI flags override client section only
+    - docs/RSMESH-BBS-SYSOP-GUIDE.md: mesh client handset + virtual radio identity
+
+- Module sync capability (framework extension) [PHASE A DONE]
+    - Phase A [DONE]:
+      - ModuleSyncRegistration + ctx.register_sync / ModuleManager registry
+      - Inbound RS wire dispatch from message_processing (module wire_types; rsv1 only)
+      - Outbound sync_pending callback from sync_pending_records worker
+      - Gating: skip inbound/outbound when module disabled in SysAdmin
+      - Helpers: get_pending_sync_peers, mark_sync_peers_synced, reset_record_sync_peers
+      - docs/RSMESH-BBS-DEVELOPER-GUIDE.md: Peer sync (Phase A) section
+    - Phase B [NOT STARTED]:
+      - Admin List Unsynced Data: include module-registered types when module enabled
+      - Peer flag design (generic modules sync enable or per-module flags)
       - Module admin screens may show module-specific sync status
-      - Status/splash counts: optional module hook to contribute lines (or query via service)
-    - docs/RSMESH-BBS-DEVELOPER-GUIDE.md: document sync registration API and first reference module
-    - Suggested phasing:
-      - Phase A: registration API + dispatch from message_processing / sync_pending_records
-      - Phase B: admin List Unsynced integration; peer flag design
-      - Phase C: first module using sync (candidate: proof-of-concept module, not core Channels)
+    - Phase C [NOT STARTED]:
+      - First reference module using sync (proof-of-concept; not core Channels)
+    - Bulletins, Mail, and Channels remain core sync types (tc2/rsv1 wire formats unchanged)
 
 TODO for Release 1.2
 ====================

@@ -141,6 +141,7 @@ Return `MODULE_RESULT_EXIT` when the user should return to the main menu (for ex
 | `ctx.path(*parts)` | Path inside the module directory (for databases, config files). |
 | `ctx.register_service(name, service)` | Register a shared object other code can look up. |
 | `ctx.register_schedule(name, minutes, callback)` | Run `callback(ctx)` on an interval while the module is enabled. |
+| `ctx.register_sync(registration)` | Register optional peer sync handlers (`ModuleSyncRegistration`). |
 
 #### Sending mesh messages safely
 
@@ -177,6 +178,67 @@ def _hourly(self, ctx):
 ```
 
 Interval is in **minutes**. Tasks run only while the module is enabled and schedule is enabled in SysAdmin.
+
+### Peer sync (Phase A, rsv1 only)
+
+Enabled modules may register optional sync participation from `on_load`. Module sync uses the **rsv1** RS wire envelope (`RS|1|TYPE|{json}`) only; the fixed **tc2** pipe format is for core Bulletins, Mail, and Channels and does not support custom module types. Modules use their own `record_type` string (for example `module:events`) in the shared `record_sync_peers` table.
+
+```python
+from rsmesh_bbs.module_loader import MODULE_RESULT_CONTINUE, MODULE_RESULT_EXIT
+from rsmesh_bbs.module_sync import (
+    ModuleSyncRegistration,
+    get_pending_sync_peers,
+    mark_sync_peers_synced,
+    reset_record_sync_peers,
+)
+from rsmesh_bbs.sync_wire import build_rs_message
+from rsmesh_bbs.utils import send_sync_message, sync_peer_bbs_node, sync_peer_protocol
+
+
+class Module:
+    def on_load(self, ctx):
+        ctx.register_sync(ModuleSyncRegistration(
+            module_id=ctx.id,
+            record_type="module:events",
+            wire_types=("EVENT",),
+            on_inbound_rs=self._ingest_event_rs,
+            sync_pending=self._sync_pending_events,
+        ))
+
+    def _ingest_event_rs(self, msg_type, fields, sender_node_id, interface):
+        # fields is the RS JSON object from the wire envelope
+        ...
+
+    def _sync_pending_events(self, peers, interface):
+        for record_key, data in storage.pending_for_sync():
+            pending = get_pending_sync_peers("module:events", record_key, peers)
+            if not pending:
+                continue
+            synced = []
+            for peer in pending:
+                message = build_rs_message(1, "EVENT", data)
+                if send_sync_message(
+                    message,
+                    sync_peer_bbs_node(peer),
+                    interface,
+                    sync_peer_protocol(peer),
+                ):
+                    synced.append(peer)
+            mark_sync_peers_synced("module:events", record_key, synced)
+```
+
+| Registration field | Purpose |
+|--------------------|---------|
+| `record_type` | Namespace for `record_sync_peers` rows (use a `module:` prefix) |
+| `wire_types` | RS envelope types owned by this module (`RS\|1\|TYPE\|{json}`) |
+| `on_inbound_rs` | Called for RS wire messages when the module is enabled |
+| `sync_pending` | Called from the background sync worker with all enabled peers |
+
+**Gating:** inbound and outbound module sync are skipped when the module is disabled in SysAdmin. Peer ingest/outbound flags for module `record_type` values default to allowed in Phase A (dedicated peer flags are planned for a later phase).
+
+**Helpers** in `rsmesh_bbs.module_sync`: `get_pending_sync_peers`, `mark_sync_peers_synced`, `reset_record_sync_peers`, `decode_module_rs_payload`.
+
+Store module-owned data in the module directory (for example `ctx.path("events.db")`). Track pending sync with `record_sync_peers` and call `reset_record_sync_peers` when a local record changes.
 
 ### Optional admin UI
 

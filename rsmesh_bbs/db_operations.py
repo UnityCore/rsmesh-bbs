@@ -405,9 +405,31 @@ def sync_pending_records(sync_peers, interface):
                 logging.warning(f"Channel {name} sync incomplete; will retry pending peers.")
 
     sync_mesh_nodes_to_peers(peers, interface)
+    _sync_module_pending_records(peers, interface)
 
     from .node_resolution import scan_mesh_nodes_store
     scan_mesh_nodes_store(interface)
+
+
+def _sync_module_pending_records(peers, interface):
+    manager = getattr(interface, "module_manager", None)
+    if manager is None:
+        return
+    for registration in manager.get_sync_registrations():
+        if not manager.is_module_sync_enabled(registration.module_id):
+            continue
+        if registration.sync_pending is None:
+            continue
+        try:
+            registration.sync_pending(peers, interface)
+        except Exception as exc:
+            logging.error(
+                "Module %s sync_pending failed for %s: %s",
+                registration.module_id,
+                registration.record_type,
+                exc,
+                exc_info=True,
+            )
 
 
 def get_unsynced_records():

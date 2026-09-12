@@ -13,6 +13,7 @@ from .db_operations import (
     add_channel, reload_sync_peers, reload_admin_nodes, get_sync_protocol_for_peer,
     ingest_mesh_node_sync, mark_channel_for_reconcile_by_sync,
 )
+from .module_sync import CORE_SYNC_PREFIXES, decode_module_rs_payload
 from .sync_wire import (
     RS_CHUNK_TYPE,
     SyncChunkAssembler,
@@ -46,10 +47,6 @@ board_action_handlers = {
     "d": lambda sender_id, interface, state: handle_bb_steps(sender_id, 'd', 2, state, interface, None),
     "x": handle_help_command
 }
-
-SYNC_PREFIXES = (
-    "RS|", "BULLETIN|", "MAIL|", "DELETE_BULLETIN|", "DELETE_MAIL|", "CHANNEL|",
-)
 
 _sync_chunk_assembler = SyncChunkAssembler()
 
@@ -108,6 +105,40 @@ def _legacy_pipe_sync_rejected(sender_node_id, record_type):
     return False
 
 
+def _module_sync_manager(interface):
+    return getattr(interface, "module_manager", None)
+
+
+def _inbound_module_sync_allowed(sender_node_id, interface, registration):
+    manager = _module_sync_manager(interface)
+    if manager is None or not manager.is_module_sync_enabled(registration.module_id):
+        logging.info(
+            "Ignoring inbound %s sync from %s; module %s disabled.",
+            registration.record_type,
+            sender_node_id,
+            registration.module_id,
+        )
+        return False
+    return _inbound_sync_allowed(sender_node_id, interface, registration.record_type)
+
+
+def _dispatch_module_rs_sync(message, interface, sender_node_id):
+    manager = _module_sync_manager(interface)
+    if manager is None:
+        return False
+    wire_version, msg_type, fields = decode_module_rs_payload(message)
+    registration = manager.lookup_sync_by_wire_type(msg_type)
+    if registration is None or registration.on_inbound_rs is None:
+        return False
+    if not _inbound_module_sync_allowed(sender_node_id, interface, registration):
+        return False
+    from .db_operations import note_rs_wire_version
+
+    note_rs_wire_version(sender_node_id, wire_version)
+    registration.on_inbound_rs(msg_type, fields, sender_node_id, interface)
+    return True
+
+
 def _inbound_sync_allowed(sender_node_id, interface, record_type):
     from .core_services import is_core_sync_enabled
 
@@ -156,6 +187,13 @@ def _sync_ingest_mail(
 
 
 def _process_rs_sync_message(sender_id, message, interface, sender_node_id):
+    manager = _module_sync_manager(interface)
+    if manager is not None:
+        _, msg_type, _payload = parse_rs_envelope(message)
+        if manager.lookup_sync_by_wire_type(msg_type) is not None:
+            _dispatch_module_rs_sync(message, interface, sender_node_id)
+            return
+
     msg_type, fields = decode_rs_sync_message(message, sender_node_id)
     if msg_type == "BULLETIN":
         if not _inbound_sync_allowed(sender_node_id, interface, 'bulletins'):
@@ -405,7 +443,10 @@ def on_receive(packet, interface):
             logging.info(f"Received message from user '{sender_short_name}' ({sender_node_id}) to {receiver_short_name}: {message_string}")
 
             bbs_nodes = interface.bbs_nodes
-            is_sync_message = any(message_string.startswith(prefix) for prefix in SYNC_PREFIXES)
+            is_sync_message = any(
+                message_string.startswith(prefix)
+                for prefix in CORE_SYNC_PREFIXES
+            )
 
             if sender_node_id in bbs_nodes:
                 if is_sync_message:

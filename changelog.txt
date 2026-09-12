@@ -20,8 +20,19 @@ Mesh user interface
   - Module menu_option reserved only for main-menu conflicts (O/X always; B/C/M when core service on); submenu keys are per-menu
   - Optional mail on main menu: Core Services -> Display Mail commands on Main Menu shows [R]ead Mail / [S]end Mail on the main menu and omits [M]ail (bbs.mail_commands_on_main_menu)
 
+Module sync (Phase A)
+  - ModuleSyncRegistration and ctx.register_sync for optional peer sync hooks
+  - Inbound RS wire dispatch from message_processing when module enabled (rsv1 only)
+  - Outbound sync_pending dispatch from sync_pending_records background worker
+  - Helpers in rsmesh_bbs.module_sync for record_sync_peers pending/synced state
+  - Developer guide: Peer sync (Phase A) section
+
 Mesh client (rsmesh-bbs_client.py)
   - --verbose / -v: print (no reply) when the BBS sends no response (default silent)
+  - config_client.yml server section: virtual_node_id, virtual_short_name, virtual_long_name
+    for the in-process mock BBS radio (defaults: !aabbcc00, BBS0, RSMesh Virtual Radio)
+  - client.long_name default BBS Test Client (example_config_client.yml)
+  - Sysop guide documents handset (client) and virtual radio (server) identity
 
 Admin System Configuration
   - Section menus for BBS, Interface, and Schedule with key = value rows
