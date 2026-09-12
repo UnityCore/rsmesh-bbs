@@ -178,8 +178,14 @@ def handle_bulletin_delete_steps(sender_id, message, step, state, interface, bbs
         handle_help_command(sender_id, interface, prefix_messages=["Bulletin deleted."])
 
 
+def _mail_returns_to_submenu():
+    from .core_services import is_mail_commands_on_main_menu
+
+    return not is_mail_commands_on_main_menu()
+
+
 def handle_read_mail_command(sender_id, interface):
-    _show_mail_inbox(sender_id, interface, return_to_mail_menu=True)
+    _show_mail_inbox(sender_id, interface, return_to_mail_menu=_mail_returns_to_submenu())
 
 
 def handle_send_mail_command(sender_id, interface):
@@ -542,9 +548,21 @@ def _channel_directory_menu():
 
 def dispatch_main_menu_key(sender_id, interface, menu_key):
     """Route a main-menu key to core service handlers or a module override."""
-    from .core_services import MAIN_MENU_HANDLER_KEYS, is_core_service_enabled
+    from .core_services import (
+        MAIN_MENU_HANDLER_KEYS,
+        is_core_mail_enabled,
+        is_core_service_enabled,
+        is_mail_commands_on_main_menu,
+    )
 
     menu_key = (menu_key or "").lower()
+    if is_core_mail_enabled() and is_mail_commands_on_main_menu():
+        if menu_key == "r":
+            handle_read_mail_command(sender_id, interface)
+            return
+        if menu_key == "s":
+            handle_send_mail_command(sender_id, interface)
+            return
     manager = getattr(interface, "module_manager", None)
     module_entry = manager.get_by_menu_option(menu_key) if manager else None
     if module_entry:
@@ -569,6 +587,13 @@ def dispatch_main_menu_key(sender_id, interface, menu_key):
         return
 
     cfg_key = MAIN_MENU_HANDLER_KEYS.get(menu_key)
+    if (
+        menu_key == "m"
+        and is_core_mail_enabled()
+        and is_mail_commands_on_main_menu()
+    ):
+        handle_help_command(sender_id, interface)
+        return
     if cfg_key is None or is_core_service_enabled(cfg_key):
         handler(sender_id, interface)
         return

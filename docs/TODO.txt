@@ -3,7 +3,7 @@ TODO for Release 1.1
 
 Status summary (2026-09-12)
   - Core Services Phase A: done (admin toggles, sync/schedule bypass, admin menu gating,
-    mesh main menu hides B/C/M when service off; freed keys for modules)
+    mesh main menu hides B/C/M when service off; freed keys for modules; optional mail R/S on main menu)
   - Dynamic Main Menu: done (cached mesh_ui/main_menu.txt, promotion, suppress rules,
     per-menu module key validation, deferred admin regen, sysop guide)
   - Admin status displays: done (splash/System Status core services line; tighter banner spacing)
@@ -28,12 +28,15 @@ Status summary (2026-09-12)
       - List Unsynced Data omits disabled record types
     - Peer sync peer flags (sync_bulletins, sync_mail, etc.) remain per-peer; core service
       off is a local master switch that overrides outbound/inbound regardless of peer config
+    - Core Services option 4: Display Mail commands on Main Menu (bbs.mail_commands_on_main_menu)
+      - Off (default): [M]ail on main menu; [R]/[S] on mail submenu
+      - On: [R]ead Mail / [S]end Mail on main menu; [M]ail omitted; M does not open mail submenu
 
 - Dynamic Main Menu [DONE]
     - Two-part HELP display: dynamic title line + cached option body (mesh_ui/main_menu.txt)
     - Regenerate cache on core-service / module-flag / suppress toggle; copy prior file to mesh_ui/main_menu.old
     - 1.1 layout: [B]ulletins/[C]hannels, [M]ail/M[o]dules, E[X]IT
-    - [M]ail submenu: [R]ead Mail, [S]end Mail, E[X]IT
+    - [M]ail submenu (default): [R]ead Mail, [S]end Mail, E[X]IT — or [R]/[S] on main menu when mail_commands_on_main_menu is on
     - Hide [B]ulletins / [M]ail / [C]hannels on main menu when matching core service is off
     - dispatch_main_menu_key: core handler, main-menu module key, or module override for B/C/M
     - Admin: Administration -> Regenerate Main Menu (manual rewrite of cache)

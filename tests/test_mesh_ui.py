@@ -4,6 +4,7 @@ from rsmesh_bbs.core_services import (
     CORE_MAIL_KEY,
     ensure_core_services_config,
     set_core_service_enabled,
+    set_mail_commands_on_main_menu,
 )
 
 
@@ -176,6 +177,25 @@ class TestModuleMenuOptionValidation:
         ok, option = db_operations.validate_module_menu_option("R")
         assert ok is True
         assert option == "R"
+
+    def test_mail_main_menu_keys_reserved_when_mail_commands_on_main_menu(self, temp_db):
+        _seed()
+        set_mail_commands_on_main_menu(True)
+        ok, _message = db_operations.validate_module_menu_option("R")
+        assert ok is False
+        ok, _message = db_operations.validate_module_menu_option("M")
+        assert ok is True
+
+    def test_build_main_menu_shows_mail_commands_on_main_menu(self, temp_db):
+        _seed()
+        set_mail_commands_on_main_menu(True)
+        body = mesh_ui.build_main_menu_body()
+        assert "[R]ead Mail" in body
+        assert "[S]end Mail" in body
+        assert "[M]ail" not in body
+        assert "R" in mesh_ui.get_main_menu_keys()
+        assert "S" in mesh_ui.get_main_menu_keys()
+        assert "M" not in mesh_ui.get_main_menu_keys()
 
     def test_mail_main_menu_key_rejected_when_mail_enabled(self, temp_db):
         _seed()

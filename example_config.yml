@@ -25,6 +25,8 @@
 # - PSKs are public directory data (shared channel keys), not secrets.
 # core_bulletins / core_mail / core_channels - enable built-in mesh features (default true).
 #   Seeded into sys_config on first run; toggle live under Administration -> Core Services.
+# mail_commands_on_main_menu - when true, show [R]ead Mail / [S]end Mail on the mesh main
+#   menu instead of [M]ail submenu (default false). Toggle under Core Services.
 
 bbs:
   board_name: RSMesh BBS
@@ -32,6 +34,7 @@ bbs:
   core_bulletins: true
   core_mail: true
   core_channels: true
+  mail_commands_on_main_menu: false
   send_urgent_alert_local: false
   send_urgent_alert_from_sync: false
   # superuser_node: "!17d7e4b7"

@@ -17,12 +17,14 @@ Mesh user interface
   - Invalid or oversized main_menu.txt falls back to auto-generated body (200-byte mesh limit)
   - Admin: Regenerate Main Menu; Edit Module Flags includes Show on main menu
   - Module menu_option reserved only for main-menu conflicts (O/X always; B/C/M when core service on); submenu keys are per-menu
+  - Optional mail on main menu: Core Services -> Display Mail commands on Main Menu shows [R]ead Mail / [S]end Mail on the main menu and omits [M]ail (bbs.mail_commands_on_main_menu)
 
 Mesh client (rsmesh-bbs_client.py)
   - --verbose / -v: print (no reply) when the BBS sends no response (default silent)
 
 Core Services (admin)
   - Administration -> Core Services toggles for Bulletins, Mail, and Channels
+  - Core Services option 4: Display Mail commands on Main Menu (bbs.mail_commands_on_main_menu; default off)
   - Settings stored in sys_config (bbs.core_bulletins, bbs.core_mail, bbs.core_channels)
   - Seeded from config.yml; missing keys added on upgrade (default enabled)
   - Admin main menu hides Bulletins / Channels / Mail entries when the service is off

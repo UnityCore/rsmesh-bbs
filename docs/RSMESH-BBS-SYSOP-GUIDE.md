@@ -153,6 +153,7 @@ The pytest `mesh_client` fixture in `tests/conftest.py` uses the same harness ag
 | Urgent mesh alerts (local) | `config.yml` `bbs` `send_urgent_alert_local` | `true`/`false` — broadcast on primary channel when an Urgent bulletin is posted on this node (default `false`) |
 | Urgent mesh alerts (sync) | `config.yml` `bbs` `send_urgent_alert_from_sync` | `true`/`false` — broadcast when an Urgent bulletin is ingested from a sync peer (default `false`) |
 | Core services (defaults) | `config.yml` `bbs` `core_bulletins`, `core_mail`, `core_channels` | `true`/`false` — seeded into `sys_config` on first run; toggled live under **Administration → Core Services** in the admin tool |
+| Mail on main menu (default off) | `config.yml` `bbs` `mail_commands_on_main_menu` | `true`/`false` — when `true` and Mail is enabled, show `[R]ead Mail` / `[S]end Mail` on the mesh main menu and omit `[M]ail`; toggled live under **Core Services** option `4` |
 | Radio interface | `config.yml` `interface` | `serial` or `tcp`; set `port` or `hostname` as needed |
 | Peer sync interval | `config.yml` `schedule` | Minutes between retries for unsynced records |
 | Module schedule tick | `config.yml` `schedule` | Minutes between module schedule worker runs (`module_exec_minutes`) |
@@ -304,14 +305,17 @@ The server does not rebuild the option rows on every mesh request. It reads the 
 
 ### Default layout
 
-| Row | Keys |
-|-----|------|
-| 1 | `[B]ulletins` / `[C]hannels` |
-| 2+ | Enabled modules promoted to the main menu (see below), if any |
-| next | `[M]ail` / M[o]dules (`O`) when shown |
-| last | `E[X]IT` |
+| Row | Keys (Mail submenu layout — default) | Keys (Mail on main menu layout) |
+|-----|--------------------------------------|----------------------------------|
+| 1 | `[B]ulletins` / `[C]hannels` | `[B]ulletins` / `[C]hannels` |
+| 2+ | Enabled modules promoted to the main menu (see below), if any | Same |
+| next | `[M]ail`, then M[o]dules (`O`) when shown | `[R]ead Mail` / `[S]end Mail`, then M[o]dules (`O`) when shown |
+| last | `E[X]IT` | `E[X]IT` |
 
-- **`[M]ail`** opens a second screen (mail submenu) with **`[R]ead Mail`**, **`[S]end Mail`**, and **`E[X]IT`**. `R` and `S` are not main-menu keys — they only apply after the user chooses Mail.
+The two mail layouts are **mutually exclusive**. Only one appears on the mesh main menu at a time.
+
+- **Mail submenu layout (default)** — **`[M]ail`** is on the main menu. It opens a second screen with **`[R]ead Mail`**, **`[S]end Mail`**, and **`E[X]IT`**. `R` and `S` are not main-menu keys in this mode.
+- **Mail on main menu layout** — Under **Administration → Core Services**, enable **Display Mail commands on Main Menu** (option `4`). The main menu shows **`[R]ead Mail`** and **`[S]end Mail`** directly; **`[M]ail` is not shown** and pressing **`M`** on the main menu does not open the mail submenu (it redraws the main menu). Users open mail with **`R`** or **`S`** from the top level. Empty inbox and other mail exits return to the main menu rather than the mail submenu. While this option is on, **`M`** is not reserved for Mail and may be assigned to a module; **`R`** and **`S`** are reserved on the main menu instead.
 - **`[B]ulletins`**, **`[M]ail`**, and **`[C]hannels`** are each removed from the main menu when the matching core service is off (**Administration → Core Services**). The freed main-menu letter can be assigned to an enabled module; see [Module menu letters (per-menu rules)](#module-menu-letters-per-menu-rules).
 - **M[o]dules** (`O`) is omitted when there are no enabled modules, or when no enabled module needs the aggregator submenu (see [M[o]dules on the main menu](#modules-on-the-main-menu)).
 
@@ -343,7 +347,8 @@ Module `menu_option` validation only checks menus where a module can be chosen b
 |--------------|------------------|--------------------------------------|
 | Bulletins | `B` | `B` |
 | Channels | `C` | `C` |
-| Mail | `M` only | `M` |
+| Mail (submenu layout) | `M` | `M` |
+| Mail (on main menu layout) | `R`, `S` | `R`, `S` |
 
 When a core service is **off**, its main-menu entry is hidden and that letter can be assigned to an enabled module. An enabled module using a freed `B`, `C`, or `M` appears on the main menu automatically (no **Show on main menu** needed).
 
@@ -351,18 +356,18 @@ When a core service is **off**, its main-menu entry is hidden and that letter ca
 
 | Menu | Core keys | Available to modules? |
 |------|-----------|------------------------|
-| Mail submenu (after `M`) | `R`, `S`, `X` | Yes — `R` and `S` may be module letters even when Mail is on |
+| Mail submenu (after `M`, default mail layout) | `R`, `S`, `X` | Yes — `R` and `S` may be module letters when Mail uses the `[M]ail` submenu |
 | Bulletin boards (after `B`) | `G`, `I`, `N`, `U`, `X` | Yes — e.g. a module may use `G` while Bulletins is on |
 | Channel directory (after `C`) | `V`, `P`, `X` | Yes |
 | M[o]dules submenu | module letters, `X` | `X` is reserved (exit); other letters are module slots |
 
-**Mail example:** With Mail **enabled**, `M` is reserved on the main menu. `R` and `S` are only used on the mail submenu after the user presses `M`, so a module may use `R` or `S` on the main menu or under M[o]dules without conflicting. With Mail **disabled**, `M` is also available for modules.
+**Mail example:** With Mail **enabled** and the default submenu layout, `M` is reserved on the main menu; `R` and `S` may still be module letters because they only apply after `M`. With **Display Mail commands on Main Menu** enabled, `[M]ail` is omitted from the main menu, `R` and `S` are reserved on the main menu, and `M` may be assigned to a module. With Mail **disabled**, `M` is also available for modules regardless of the mail layout option.
 
 ### When the menu file is regenerated
 
 | Trigger | When `main_menu.txt` is rewritten |
 |---------|-----------------------------------|
-| **Leaving Administration** | Once, after any changes in that session that affect the mesh menu (Core Services toggles, module flags, suppress setting) |
+| **Leaving Administration** | Once, after any changes in that session that affect the mesh menu (Core Services toggles, mail layout option, module flags, suppress setting) |
 | **Administration → Regenerate Main Menu** | Immediately on that action |
 | **Server or client startup** | Once, after configuration is loaded |
 
@@ -533,14 +538,21 @@ Changes to sync peers and sysadmin nodes are picked up by a running BBS server o
 
 Enable or disable the built-in Bulletins, Mail, and Channels features without uninstalling modules or editing raw `sys_config` rows.
 
-| Option | Service |
+| Option | Setting |
 |--------|---------|
 | `1` | Bulletins |
 | `2` | Mail |
 | `3` | Channels |
+| `4` | Display Mail commands on Main Menu |
 | `0` | Back to Administration |
 
-Each row shows **Enabled** or **Disabled**. Select a row to toggle it. Settings are stored in `sys_config` as `bbs.core_bulletins`, `bbs.core_mail`, and `bbs.core_channels` (seeded from `config.yml` on upgrade; default enabled).
+Options `1`–`3` enable or disable each core service. Each row shows **Enabled** or **Disabled**; select a row to toggle it. Service toggles are stored in `sys_config` as `bbs.core_bulletins`, `bbs.core_mail`, and `bbs.core_channels` (seeded from `config.yml` on upgrade).
+
+**Option `4` — Display Mail commands on Main Menu** (`bbs.mail_commands_on_main_menu`, default **Disabled**):
+
+- **Disabled (default):** Main menu shows **`[M]ail`**; Read/Send are on the mail submenu after the user presses `M`.
+- **Enabled:** Main menu shows **`[R]ead Mail`** and **`[S]end Mail`**; **`[M]ail` is omitted** from the main menu and `M` does not open the mail submenu. Only applies while Mail (option `2`) is enabled; the setting is stored either way but has no mesh effect when Mail is off.
+- Toggling option `4` regenerates the cached mesh main menu when you leave **Administration** (same as other Core Services changes). See [Default layout](#default-layout) for the two mail layouts.
 
 When a service is disabled:
 
@@ -1138,4 +1150,4 @@ Splash Screen
     └── 0. Exit
 ```
 
-Mesh main menu (separate from the admin tool): title line plus cached `mesh_ui/main_menu.txt`. Default body: `[B]ulletins` / `[C]hannels`, `[M]ail` / M[o]dules (`O`), `E[X]IT`; mail submenu `[R]` / `[S]`. See [Mesh main menu (cached file)](#mesh-main-menu-cached-file) and the [User Guide](RSMESH-BBS-USER-GUIDE.md).
+Mesh main menu (separate from the admin tool): title line plus cached `mesh_ui/main_menu.txt`. Default body: `[B]ulletins` / `[C]hannels`, `[M]ail` / M[o]dules (`O`), `E[X]IT`; mail submenu `[R]` / `[S]`. Optional **Display Mail commands on Main Menu** replaces `[M]ail` with `[R]` / `[S]` on the main menu. See [Mesh main menu (cached file)](#mesh-main-menu-cached-file) and the [User Guide](RSMESH-BBS-USER-GUIDE.md).

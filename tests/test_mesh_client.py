@@ -29,6 +29,25 @@ class TestMeshClientMenus:
         assert "[R]ead Mail" in replies
         assert "[S]end Mail" in replies
 
+    def test_mail_commands_on_main_menu(self, mesh_client, temp_db):
+        from rsmesh_bbs.core_services import set_mail_commands_on_main_menu
+        from rsmesh_bbs import mesh_ui
+
+        set_mail_commands_on_main_menu(True)
+        mesh_ui.regenerate_main_menu_file()
+        menu = mesh_client.send_joined("?")
+        assert "[R]ead Mail" in menu
+        assert "[S]end Mail" in menu
+        assert "[M]ail" not in menu
+        replies = mesh_client.send_joined("r")
+        assert "No messages." in replies
+        menu = mesh_client.send_joined("?")
+        assert "[R]ead Mail" in menu
+        joined = mesh_client.send_joined("m")
+        assert "= Mail =" not in joined
+        assert "[M]ail" not in joined
+        assert "[R]ead Mail" in joined
+
     def test_read_mail_empty_inbox(self, mesh_client):
         mesh_client.send("m")
         replies = mesh_client.send("r")

@@ -5,7 +5,12 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .config_init import get_board_name, parse_config_value
-from .core_services import CORE_MENU_LETTERS, is_core_service_enabled
+from .core_services import (
+    CORE_MENU_LETTERS,
+    is_core_mail_enabled,
+    is_core_service_enabled,
+    is_mail_commands_on_main_menu,
+)
 from .db_operations import add_sys_config_entry, get_modules, get_sys_config_value, update_sys_config_entry
 from .module_loader import APP_ROOT, ModuleManager
 from .utils import MESH_MESSAGE_MAX_SIZE
@@ -26,6 +31,10 @@ MENU_LABELS = {
 }
 
 MAIL_SUBMENU_TEXT = "= Mail =\n[R]ead Mail  [S]end Mail"
+MAIL_MAIN_MENU_LABELS = {
+    "R": "[R]ead Mail",
+    "S": "[S]end Mail",
+}
 
 _WORST_CASE_MAIL_COUNT = 999
 _WORST_CASE_BOARD_NAME = "X" * 40
@@ -160,7 +169,12 @@ def should_show_modules_entry():
 def get_main_menu_keys():
     keys = {"X"}
     for letter, cfg_key in CORE_MENU_LETTERS:
-        if is_core_service_enabled(cfg_key):
+        if letter == "M" and is_core_mail_enabled():
+            if is_mail_commands_on_main_menu():
+                keys.update(MAIL_MAIN_MENU_LABELS.keys())
+            else:
+                keys.add("M")
+        elif is_core_service_enabled(cfg_key):
             keys.add(letter)
     if should_show_modules_entry():
         keys.add("O")
@@ -211,8 +225,10 @@ def build_main_menu_body():
         module_labels = module_labels[2:]
 
     service_row = []
-    for letter, cfg_key in CORE_MENU_LETTERS:
-        if letter == "M" and is_core_service_enabled(cfg_key):
+    if is_core_mail_enabled():
+        if is_mail_commands_on_main_menu():
+            service_row.extend(MAIL_MAIN_MENU_LABELS[letter] for letter in ("R", "S"))
+        else:
             service_row.append(MENU_LABELS["M"])
     if should_show_modules_entry():
         service_row.append(MENU_LABELS["O"])

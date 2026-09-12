@@ -67,13 +67,16 @@ from rsmesh_bbs.backup import create_application_backup
 from rsmesh_bbs.core_services import (
     CORE_SERVICE_KEYS,
     CORE_SERVICE_LABELS,
+    MAIL_COMMANDS_ON_MAIN_MENU_LABEL,
     ensure_core_services_config,
     format_core_services_status_line,
     is_core_bulletins_enabled,
     is_core_channels_enabled,
     is_core_mail_enabled,
     is_core_service_enabled,
+    is_mail_commands_on_main_menu,
     toggle_core_service,
+    toggle_mail_commands_on_main_menu,
 )
 from rsmesh_bbs.mesh_ui import (
     defer_main_menu_regeneration,
@@ -1949,6 +1952,10 @@ def core_services_menu(back_label="Administration"):
             label = CORE_SERVICE_LABELS[cfg_key]
             state = "Enabled" if is_core_service_enabled(cfg_key) else "Disabled"
             body_lines.append(f"{index}. {label} ({state})")
+        mail_main_state = "Enabled" if is_mail_commands_on_main_menu() else "Disabled"
+        body_lines.append(
+            f"{len(CORE_SERVICE_KEYS) + 1}. {MAIL_COMMANDS_ON_MAIN_MENU_LABEL} ({mail_main_state})"
+        )
         body_lines.append("")
         body_lines.append(f"0. Back to {back_label}")
         choice = render_menu_screen("Core Services", body_lines)
@@ -1959,6 +1966,8 @@ def core_services_menu(back_label="Administration"):
             option_index = int(choice) - 1
             if 0 <= option_index < len(CORE_SERVICE_KEYS):
                 toggle_core_service(CORE_SERVICE_KEYS[option_index])
+            elif option_index == len(CORE_SERVICE_KEYS):
+                toggle_mail_commands_on_main_menu()
             else:
                 _finish_action_message("Invalid option. Try again.", "Core Services")
                 prompt_continue()

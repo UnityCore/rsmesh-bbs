@@ -33,6 +33,7 @@ class TestCoreServicesConfig:
         assert "core_bulletins" in text
         assert "core_mail" in text
         assert "core_channels" in text
+        assert "mail_commands_on_main_menu" in text
 
     def test_disabled_mail_hides_mail_key_on_main_menu(self, temp_db):
         _seed_core_services()

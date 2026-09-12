@@ -12,8 +12,11 @@ CFG_SECTION = "bbs"
 CORE_BULLETINS_KEY = "core_bulletins"
 CORE_MAIL_KEY = "core_mail"
 CORE_CHANNELS_KEY = "core_channels"
+MAIL_COMMANDS_ON_MAIN_MENU_KEY = "mail_commands_on_main_menu"
 
 CORE_SERVICE_KEYS = (CORE_BULLETINS_KEY, CORE_MAIL_KEY, CORE_CHANNELS_KEY)
+
+MAIL_COMMANDS_ON_MAIN_MENU_LABEL = "Display Mail commands on Main Menu"
 
 CORE_SERVICE_LABELS = {
     CORE_BULLETINS_KEY: "Bulletins",
@@ -57,6 +60,10 @@ def is_core_mail_enabled():
 
 def is_core_channels_enabled():
     return _core_service_bool(CORE_CHANNELS_KEY)
+
+
+def is_mail_commands_on_main_menu():
+    return _core_service_bool(MAIL_COMMANDS_ON_MAIN_MENU_KEY, default=False)
 
 
 def is_core_sync_enabled(record_type):
@@ -115,7 +122,10 @@ def get_module_reserved_menu_options():
     if is_core_channels_enabled():
         reserved.add("C")
     if is_core_mail_enabled():
-        reserved.add("M")
+        if is_mail_commands_on_main_menu():
+            reserved.update({"R", "S"})
+        else:
+            reserved.add("M")
     return frozenset(reserved)
 
 
@@ -140,6 +150,19 @@ def toggle_core_service(cfg_key):
     set_core_service_enabled(cfg_key, not is_core_service_enabled(cfg_key))
 
 
+def set_mail_commands_on_main_menu(enabled):
+    value = "true" if enabled else "false"
+    if get_sys_config_value(CFG_SECTION, MAIL_COMMANDS_ON_MAIN_MENU_KEY) is None:
+        add_sys_config_entry(CFG_SECTION, MAIL_COMMANDS_ON_MAIN_MENU_KEY, value)
+    else:
+        update_sys_config_entry(CFG_SECTION, MAIL_COMMANDS_ON_MAIN_MENU_KEY, value)
+    _regenerate_main_menu()
+
+
+def toggle_mail_commands_on_main_menu():
+    set_mail_commands_on_main_menu(not is_mail_commands_on_main_menu())
+
+
 def ensure_core_services_config(config_file=None):
     """Seed missing core-service keys in sys_config and config.yml, then refresh main menu."""
     config_file = config_file or DEFAULT_CONFIG_FILE
@@ -148,6 +171,8 @@ def ensure_core_services_config(config_file=None):
     for key in CORE_SERVICE_KEYS:
         if get_sys_config_value(CFG_SECTION, key) is None:
             add_sys_config_entry(CFG_SECTION, key, "true")
+    if get_sys_config_value(CFG_SECTION, MAIL_COMMANDS_ON_MAIN_MENU_KEY) is None:
+        add_sys_config_entry(CFG_SECTION, MAIL_COMMANDS_ON_MAIN_MENU_KEY, "false")
 
     if path.is_file():
         config = load_config(config_file)
@@ -157,6 +182,9 @@ def ensure_core_services_config(config_file=None):
             if key not in bbs:
                 bbs[key] = True
                 yaml_updated = True
+        if MAIL_COMMANDS_ON_MAIN_MENU_KEY not in bbs:
+            bbs[MAIL_COMMANDS_ON_MAIN_MENU_KEY] = False
+            yaml_updated = True
         if yaml_updated:
             with path.open("w", encoding="utf-8") as handle:
                 yaml.dump(config, handle, default_flow_style=False, sort_keys=False)
