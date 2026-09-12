@@ -7,7 +7,14 @@ require_venv()
 
 from rsmesh_bbs.version import APP_NAME, VERSION
 
-from rsmesh_bbs.config_init import DEFAULT_CONFIG_FILE, export_sys_config_to_yaml, get_board_name, require_config_file
+from rsmesh_bbs.config_init import (
+    DEFAULT_CONFIG_FILE,
+    SYS_CONFIG_SECTION_LABELS,
+    export_sys_config_to_yaml,
+    get_board_name,
+    get_sys_config_admin_schema,
+    require_config_file,
+)
 from rsmesh_bbs.utils import join_display_fields
 from rsmesh_bbs.time_format import format_relative_time, format_timestamp
 from rsmesh_bbs.db_operations import (
@@ -39,9 +46,7 @@ from rsmesh_bbs.db_operations import (
     backfill_sync_peer_last_heard,
     ensure_sys_config_from_yaml,
     get_sys_config_entries,
-    add_sys_config_entry,
     update_sys_config_entry,
-    delete_sys_config_entry,
     get_sysadmin_nodes,
     add_sysadmin_node,
     update_sysadmin_node,
@@ -1447,120 +1452,63 @@ def delete_sync_peer_entry():
     else:
         _finish_action_message("Sync peer not found.", "Delete Sync Peer")
 
-def _sys_config_lines(rows):
-    if not rows:
-        return []
-    return [
-        join_display_fields(
-            f"{index}.",
-            f"Section: {cfg_section}",
-            f"Key: {cfg_key}",
-            f"Value: {cfg_value}",
-        )
-        for index, (cfg_section, cfg_key, cfg_value) in enumerate(rows, 1)
-    ]
+def _sys_config_page_title(section_label):
+    return f"System Configuration : {section_label}"
 
-def list_sys_config():
-    paginate_display(
-        "List System Configuration",
-        _sys_config_lines(get_sys_config_entries()),
-        empty_message="No configuration entries found.",
-    )
-    return False
 
-def add_sys_config_entry_prompt():
-    begin_form_screen("Add Configuration Entry")
-    cfg_section = input_bold("Section (e.g. bbs, interface): ").strip()
-    cfg_key = input_bold("Key: ").strip()
-    cfg_value = input_bold("Value: ").strip()
-    if not cfg_section or not cfg_key:
-        _finish_action_message("Section and key are required.", "Add Configuration Entry")
-        return
-    if add_sys_config_entry(cfg_section, cfg_key, cfg_value):
-        _finish_action_message(
-            f"Configuration entry {cfg_section}.{cfg_key} added.",
-            "Add Configuration Entry",
-        )
-    else:
-        _finish_action_message(
-            "Could not add entry. It may already exist.",
-            "Add Configuration Entry",
-        )
+def _sys_config_section_rows(cfg_section):
+    from rsmesh_bbs.db_operations import get_sys_config_value
 
-def edit_sys_config_entry():
-    rows = get_sys_config_entries()
-    selection = _paginate_select(
-        "Edit Configuration Entry",
-        _sys_config_lines(rows),
-        "No configuration entries found.",
-        "Enter row # or X=cancel:",
-        "Edit cancelled.",
-    )
-    if _paginate_select_exit(selection):
-        return selection
+    admin_schema = get_sys_config_admin_schema()
+    rows = []
+    for cfg_key in admin_schema.get(cfg_section, []):
+        cfg_value = get_sys_config_value(cfg_section, cfg_key, "")
+        rows.append((cfg_section, cfg_key, cfg_value if cfg_value is not None else ""))
+    return rows
 
-    try:
-        row_index = int(selection) - 1
-    except ValueError:
-        _finish_action_message("Invalid row number.", "Edit Configuration Entry")
-        return
 
-    if row_index < 0 or row_index >= len(rows):
-        _finish_action_message("Configuration entry not found.", "Edit Configuration Entry")
-        return
+def _edit_sys_config_value(page_title, cfg_section, cfg_key, cfg_value):
+    begin_form_screen(page_title)
+    print_bold(f"Key: {cfg_key}")
+    new_value = input_bold(f"Value [{cfg_value}]: ").strip()
+    if not new_value:
+        _finish_cancelled("No changes made.", page_title)
+        return cfg_value
+    if update_sys_config_entry(cfg_section, cfg_key, new_value):
+        _finish_action_message(f"{cfg_key} updated.", page_title)
+        return new_value
+    _finish_action_message("Configuration entry not found.", page_title)
+    return cfg_value
 
-    cfg_section, cfg_key, cfg_value = rows[row_index]
-    begin_form_screen("Edit Configuration Entry")
-    print_bold("Press Enter to keep the current value.")
-    cfg_section = input_bold(f"Section [{cfg_section}]: ").strip() or cfg_section
-    cfg_key = input_bold(f"Key [{cfg_key}]: ").strip() or cfg_key
-    cfg_value = input_bold(f"Value [{cfg_value}]: ").strip() or cfg_value
 
-    if (cfg_section, cfg_key) != (rows[row_index][0], rows[row_index][1]):
-        if delete_sys_config_entry(rows[row_index][0], rows[row_index][1]):
-            if add_sys_config_entry(cfg_section, cfg_key, cfg_value):
-                message = f"Configuration entry updated to {cfg_section}.{cfg_key}."
-            else:
-                add_sys_config_entry(rows[row_index][0], rows[row_index][1], rows[row_index][2])
-                message = "Could not update entry. Section/key may already exist."
-        else:
-            message = "Could not update entry."
-    elif update_sys_config_entry(cfg_section, cfg_key, cfg_value):
-        message = f"Configuration entry {cfg_section}.{cfg_key} updated."
-    else:
-        message = "Configuration entry not found."
-    _finish_action_message(message, "Edit Configuration Entry")
+def sys_config_section_menu(cfg_section, section_label, back_label="System Configuration"):
+    page_title = _sys_config_page_title(section_label)
+    rows = _sys_config_section_rows(cfg_section)
+    while True:
+        body_lines = [
+            f"{index}. {cfg_key} = {cfg_value or '(empty)'}"
+            for index, (_cfg_section, cfg_key, cfg_value) in enumerate(rows, 1)
+        ]
+        body_lines.append("")
+        body_lines.append(f"0. Back to {back_label}")
+        choice = render_menu_screen(page_title, body_lines)
+        clear_screen()
+        if choice == "0":
+            return False
+        try:
+            row_index = int(choice) - 1
+        except ValueError:
+            _finish_action_message("Invalid option. Try again.", page_title)
+            prompt_continue()
+            continue
+        if row_index < 0 or row_index >= len(rows):
+            _finish_action_message("Invalid option. Try again.", page_title)
+            prompt_continue()
+            continue
+        cfg_section, cfg_key, cfg_value = rows[row_index]
+        updated_value = _edit_sys_config_value(page_title, cfg_section, cfg_key, cfg_value)
+        rows[row_index] = (cfg_section, cfg_key, updated_value)
 
-def delete_sys_config_entry_prompt():
-    rows = get_sys_config_entries()
-    selection = _paginate_select(
-        "Delete Configuration Entry",
-        _sys_config_lines(rows),
-        "No configuration entries found.",
-        "Enter row # or X=cancel:",
-        "Deletion cancelled.",
-    )
-    if _paginate_select_exit(selection):
-        return selection
-
-    try:
-        row_index = int(selection) - 1
-    except ValueError:
-        _finish_action_message("Invalid row number.", "Delete Configuration Entry")
-        return
-
-    if row_index < 0 or row_index >= len(rows):
-        _finish_action_message("Configuration entry not found.", "Delete Configuration Entry")
-        return
-
-    cfg_section, cfg_key, _cfg_value = rows[row_index]
-    if delete_sys_config_entry(cfg_section, cfg_key):
-        _finish_action_message(
-            f"Configuration entry {cfg_section}.{cfg_key} deleted.",
-            "Delete Configuration Entry",
-        )
-    else:
-        _finish_action_message("Configuration entry not found.", "Delete Configuration Entry")
 
 def _sysadmin_node_lines(rows):
     if not rows:
@@ -1647,7 +1595,7 @@ def delete_sysadmin_node_entry():
         _finish_action_message("Sysadmin node not found.", "Delete Sysadmin Node")
 
 def export_sys_config_to_yaml_entry():
-    page_title = "Export Configuration to config.yml"
+    page_title = "System Configuration : Export"
     begin_form_screen(page_title)
     rows = get_sys_config_entries()
     if not rows:
@@ -1662,8 +1610,11 @@ def export_sys_config_to_yaml_entry():
         return
 
     output_path = export_sys_config_to_yaml(rows, DEFAULT_CONFIG_FILE)
+    from rsmesh_bbs.config_init import get_sys_config_schema
+
+    schema_count = sum(len(keys) for keys in get_sys_config_schema().values())
     _finish_action_message(
-        f"Exported {len(rows)} configuration entries to {output_path}.",
+        f"Exported configuration to {output_path} ({schema_count} known settings).",
         page_title,
     )
 
@@ -1934,15 +1885,39 @@ def sync_peers_menu(back_label="Main Menu"):
     return False
 
 
-def sys_config_menu(back_label="Main Menu"):
-    run_submenu("System Configuration", [
-        ("List Configuration", list_sys_config),
-        ("Add Configuration Entry", add_sys_config_entry_prompt),
-        ("Edit Configuration Entry", edit_sys_config_entry),
-        ("Delete Configuration Entry", delete_sys_config_entry_prompt),
-        ("Export Configuration to config.yml", export_sys_config_to_yaml_entry),
-    ], back_label=back_label)
-    return False
+def sys_config_menu(back_label="Administration"):
+    admin_schema = get_sys_config_admin_schema()
+    section_items = [
+        (SYS_CONFIG_SECTION_LABELS[cfg_section], cfg_section)
+        for cfg_section in admin_schema
+        if cfg_section in SYS_CONFIG_SECTION_LABELS
+    ]
+    while True:
+        body_lines = [
+            f"{index}. {section_label}"
+            for index, (section_label, _cfg_section) in enumerate(section_items, 1)
+        ]
+        body_lines.append(f"{len(section_items) + 1}. Export Configuration to config.yml")
+        body_lines.append("")
+        body_lines.append(f"0. Back to {back_label}")
+        choice = render_menu_screen("System Configuration", body_lines)
+        clear_screen()
+        if choice == "0":
+            return False
+        if choice == str(len(section_items) + 1):
+            export_sys_config_to_yaml_entry()
+            continue
+        try:
+            option_index = int(choice) - 1
+            if 0 <= option_index < len(section_items):
+                section_label, cfg_section = section_items[option_index]
+                sys_config_section_menu(cfg_section, section_label)
+            else:
+                _finish_action_message("Invalid option. Try again.", "System Configuration")
+                prompt_continue()
+        except ValueError:
+            _finish_action_message("Invalid option. Try again.", "System Configuration")
+            prompt_continue()
 
 
 def core_services_menu(back_label="Administration"):

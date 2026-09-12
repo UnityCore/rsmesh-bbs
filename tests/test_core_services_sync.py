@@ -11,6 +11,11 @@ from rsmesh_bbs.message_processing import _inbound_sync_allowed, _process_sync_m
 from rsmesh_bbs.mock_interface import MockMeshInterface
 
 
+def _seed_core_services():
+    db_operations.ensure_sys_config_from_yaml()
+    ensure_core_services_config()
+
+
 def _setup_peer(interface, peer_node="!peer_a"):
     db_operations.add_sync_peer(
         peer_node,
@@ -24,7 +29,7 @@ def _setup_peer(interface, peer_node="!peer_a"):
 
 class TestCoreServicesInboundSync:
     def test_inbound_bulletin_blocked_when_core_service_off(self, temp_db):
-        ensure_core_services_config()
+        _seed_core_services()
         interface = MockMeshInterface()
         _setup_peer(interface)
         set_core_service_enabled(CORE_BULLETINS_KEY, False)
@@ -32,7 +37,7 @@ class TestCoreServicesInboundSync:
         assert not _inbound_sync_allowed("!peer_a", interface, "bulletins")
 
     def test_inbound_bulletin_ingest_skipped_when_core_service_off(self, temp_db):
-        ensure_core_services_config()
+        _seed_core_services()
         interface = MockMeshInterface()
         _setup_peer(interface)
         set_core_service_enabled(CORE_BULLETINS_KEY, False)
@@ -51,7 +56,7 @@ class TestCoreServicesInboundSync:
 
 class TestCoreServicesOutboundSync:
     def test_sync_pending_skips_bulletins_when_core_service_off(self, temp_db):
-        ensure_core_services_config()
+        _seed_core_services()
         interface = MockMeshInterface()
         _setup_peer(interface)
 
@@ -70,7 +75,7 @@ class TestCoreServicesOutboundSync:
         assert len(interface.sent_messages) > before
 
     def test_sync_bulletin_record_noop_when_core_service_off(self, temp_db):
-        ensure_core_services_config()
+        _seed_core_services()
         interface = MockMeshInterface()
         _setup_peer(interface)
 
@@ -85,7 +90,7 @@ class TestCoreServicesOutboundSync:
 
 class TestCoreServicesSchedule:
     def test_purge_deleted_bulletins_skipped_when_core_service_off(self, temp_db):
-        ensure_core_services_config()
+        _seed_core_services()
         interface = MockMeshInterface()
         _setup_peer(interface)
 
@@ -114,7 +119,7 @@ class TestCoreServicesSchedule:
         assert remaining == 0
 
     def test_unsynced_records_excludes_disabled_core_services(self, temp_db):
-        ensure_core_services_config()
+        _seed_core_services()
         db_operations.add_bulletin(
             "General", "OPS", "Subject", "Body", None, None, defer_sync=True,
         )

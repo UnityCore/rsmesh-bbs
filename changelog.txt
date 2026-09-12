@@ -23,6 +23,11 @@ Mesh user interface
 Mesh client (rsmesh-bbs_client.py)
   - --verbose / -v: print (no reply) when the BBS sends no response (default silent)
 
+Admin System Configuration
+  - Section menus for BBS, Interface, and Schedule with key = value rows
+  - Edit value only; required keys from example_config.yml seeded on startup
+  - Export writes schema-ordered config.yml; missing yaml keys merged from example defaults
+
 Core Services (admin)
   - Administration -> Core Services toggles for Bulletins, Mail, and Channels
   - Core Services option 4: Display Mail commands on Main Menu (bbs.mail_commands_on_main_menu; default off)

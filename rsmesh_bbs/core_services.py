@@ -1,10 +1,6 @@
 """Core BBS service toggles (bulletins, mail, channels)."""
 
-from pathlib import Path
-
-import yaml
-
-from .config_init import DEFAULT_CONFIG_FILE, load_config, parse_config_value
+from .config_init import parse_config_value
 from .db_operations import add_sys_config_entry, get_sys_config_value, update_sys_config_entry
 
 CFG_SECTION = "bbs"
@@ -170,29 +166,5 @@ def toggle_mail_commands_on_main_menu():
 
 
 def ensure_core_services_config(config_file=None):
-    """Seed missing core-service keys in sys_config and config.yml; ensure main menu file exists."""
-    config_file = config_file or DEFAULT_CONFIG_FILE
-    path = Path(config_file)
-
-    for key in CORE_SERVICE_KEYS:
-        if get_sys_config_value(CFG_SECTION, key) is None:
-            add_sys_config_entry(CFG_SECTION, key, "true")
-    if get_sys_config_value(CFG_SECTION, MAIL_COMMANDS_ON_MAIN_MENU_KEY) is None:
-        add_sys_config_entry(CFG_SECTION, MAIL_COMMANDS_ON_MAIN_MENU_KEY, "false")
-
-    if path.is_file():
-        config = load_config(config_file)
-        bbs = config.setdefault("bbs", {})
-        yaml_updated = False
-        for key in CORE_SERVICE_KEYS:
-            if key not in bbs:
-                bbs[key] = True
-                yaml_updated = True
-        if MAIL_COMMANDS_ON_MAIN_MENU_KEY not in bbs:
-            bbs[MAIL_COMMANDS_ON_MAIN_MENU_KEY] = False
-            yaml_updated = True
-        if yaml_updated:
-            with path.open("w", encoding="utf-8") as handle:
-                yaml.dump(config, handle, default_flow_style=False, sort_keys=False)
-
+    """Ensure main menu file exists after sys_config has been seeded."""
     _ensure_main_menu_file()

@@ -13,6 +13,7 @@ from rsmesh_bbs import mesh_ui
 
 
 def _seed_core_services():
+    db_operations.ensure_sys_config_from_yaml()
     ensure_core_services_config()
 
 
@@ -26,8 +27,9 @@ class TestCoreServicesConfig:
     def test_upgrade_adds_missing_yaml_keys(self, temp_db, monkeypatch, tmp_path):
         config_path = tmp_path / "config.yml"
         config_path.write_text("bbs:\n  board_name: Test\n", encoding="utf-8")
-        monkeypatch.setattr("rsmesh_bbs.core_services.DEFAULT_CONFIG_FILE", str(config_path))
-        _seed_core_services()
+        monkeypatch.setattr("rsmesh_bbs.config_init.DEFAULT_CONFIG_FILE", str(config_path))
+        monkeypatch.setattr("rsmesh_bbs.db_operations.DEFAULT_CONFIG_FILE", str(config_path))
+        db_operations.ensure_sys_config_from_yaml(str(config_path))
 
         text = config_path.read_text(encoding="utf-8")
         assert "core_bulletins" in text

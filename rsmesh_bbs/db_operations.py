@@ -5,10 +5,18 @@ import threading
 import time
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 
 
 from .version import BBS_DB_FILE
-from .config_init import DEFAULT_CONFIG_FILE, export_sys_config_to_yaml, flatten_yaml_config, load_config
+from .config_init import (
+    DEFAULT_CONFIG_FILE,
+    ensure_config_yaml_schema,
+    export_sys_config_to_yaml,
+    flatten_yaml_config,
+    load_config,
+    load_example_config_defaults,
+)
 from .sqlite_config import configure_sqlite_connection
 from .tc2_migration import migrate_tc2_database
 from .utils import (
@@ -1001,23 +1009,34 @@ def _normalize_sync_protocol(protocol):
 
 
 def ensure_sys_config_from_yaml(config_file=None):
+    """Seed required sys_config rows from example_config.yml defaults."""
     config_file = config_file or DEFAULT_CONFIG_FILE
-    config = load_config(config_file)
-    entries = flatten_yaml_config(config)
+    example_defaults = {
+        (cfg_section, cfg_key): cfg_value
+        for cfg_section, cfg_key, cfg_value in load_example_config_defaults()
+    }
+    user_values = {}
+    if Path(config_file).is_file():
+        user_values = {
+            (cfg_section, cfg_key): cfg_value
+            for cfg_section, cfg_key, cfg_value in flatten_yaml_config(load_config(config_file))
+        }
 
     conn = get_db_connection()
     c = conn.cursor()
-    for cfg_section, cfg_key, cfg_value in entries:
+    for (cfg_section, cfg_key), default_value in example_defaults.items():
         c.execute(
             "SELECT 1 FROM sys_config WHERE cfg_section = ? AND cfg_key = ?",
-            (cfg_section, cfg_key)
+            (cfg_section, cfg_key),
         )
         if c.fetchone() is None:
+            cfg_value = user_values.get((cfg_section, cfg_key), default_value)
             c.execute(
                 "INSERT INTO sys_config (cfg_section, cfg_key, cfg_value) VALUES (?, ?, ?)",
-                (cfg_section, cfg_key, cfg_value)
+                (cfg_section, cfg_key, cfg_value),
             )
     conn.commit()
+    ensure_config_yaml_schema(config_file)
 
 
 SCHEDULE_CONFIG_DEFAULTS = {

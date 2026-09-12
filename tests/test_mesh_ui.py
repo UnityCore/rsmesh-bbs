@@ -9,6 +9,7 @@ from rsmesh_bbs.core_services import (
 
 
 def _seed():
+    db_operations.ensure_sys_config_from_yaml()
     ensure_core_services_config()
 
 

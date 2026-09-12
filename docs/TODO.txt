@@ -7,8 +7,8 @@ Status summary (2026-09-12)
   - Dynamic Main Menu: done (cached mesh_ui/main_menu.txt, promotion, suppress rules,
     per-menu module key validation, deferred admin regen, sysop guide)
   - Admin status displays: done (splash/System Status core services line; tighter banner spacing)
+  - Admin System Configuration refactor: done (section menus, required-key seeding)
   - Module sync framework: not started
-  - Admin System Configuration refactor: not started
   - Device Blacklist: not started (moved to 1.2 backlog below)
 
 - Core Services (operator toggles for Bulletins, Mail, Channels) [DONE - Phase A]
@@ -52,30 +52,15 @@ Status summary (2026-09-12)
     - Hide M[O]dules when suppress on and every enabled module is on main menu (disabled modules ignored)
     - docs/RSMESH-BBS-SYSOP-GUIDE.md: mesh main menu, per-menu letters, suppress behavior
 
-- Admin System Configuration refactor [NOT STARTED]
-    - Today: Administration -> System Configuration is generic CRUD on sys_config
-      (list/add/edit/delete rows, export all rows to config.yml)
-    - Problem: operator must know cfg_section/cfg_key names; easy to break runtime
-      settings; overlaps with dedicated screens (Core Services, future Regenerate Main Menu)
-    - Goal: structured maintenance for known settings; keep sys_config as backing store
-    - Known-setting screens (examples):
-      - bbs: board_name, eventbus_topic, urgent alert flags (already in config.yml)
-      - schedule: peer_sync_minutes, module_exec_minutes, sync_purge_minutes,
-        bulletin_display_age_days
-      - Core Services keys remain on Core Services screen (not duplicated here)
-    - Generic advanced mode (optional):
-      - Retain list/edit/delete for power users or module-added keys
-      - Or move raw CRUD to a hidden "Advanced Configuration" submenu
-    - Validation:
-      - Type-aware editors (bool, int, string); reject invalid values before save
-      - Protect required keys from delete; warn on keys with dedicated admin UI
-    - config.yml round-trip:
-      - Export writes known sections cleanly; seed/upgrade merges new keys on startup
-      - Document which keys are operator-editable vs internal-only
-    - Suggested phasing:
-      - Phase A: schema/registry of known sys_config keys + typed edit forms for bbs/schedule
-      - Phase B: demote or relocate raw CRUD; export/import alignment with example_config.yml
-      - Phase C: module-registered config keys (if modules need sys_config exposure)
+- Admin System Configuration refactor [DONE - Phase A]
+    - Section menus: BBS, Interface, Schedule + Export at top level
+    - Section page header: System Configuration : {section}
+    - Numbered key = value rows; select to edit value only (no add/delete)
+    - Required keys defined by example_config.yml; seeded into sys_config on startup
+    - Missing config.yml keys merged from example_config.yml defaults on startup
+    - Export writes schema-ordered bbs/interface/schedule keys to config.yml
+    - Core Services / mail layout / suppress_modules_menu excluded from this screen
+    - Remaining (optional): type-aware editors; module-registered sys_config keys
 
 - Module sync capability (framework extension) [NOT STARTED]
     - Bulletins, Mail, and Channels remain core sync types (tc2/rsv1 wire formats unchanged)

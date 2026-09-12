@@ -14,6 +14,24 @@ from .version import APP_NAME, VERSION
 
 DEFAULT_CONFIG_FILE = "config.yml"
 DEFAULT_CLIENT_CONFIG_FILE = "config_client.yml"
+EXAMPLE_CONFIG_FILE = "example_config.yml"
+
+_APP_ROOT = Path(__file__).resolve().parent.parent
+
+SYS_CONFIG_SECTION_LABELS = {
+    "bbs": "BBS",
+    "interface": "Interface",
+    "schedule": "Schedule",
+}
+
+# Keys managed on other admin screens; still required in sys_config but hidden here.
+SYS_CONFIG_ADMIN_EXCLUDED_KEYS = frozenset({
+    ("bbs", "core_bulletins"),
+    ("bbs", "core_mail"),
+    ("bbs", "core_channels"),
+    ("bbs", "mail_commands_on_main_menu"),
+    ("bbs", "suppress_modules_menu"),
+})
 
 
 def require_config_file(config_file: Optional[str] = None) -> str:
@@ -111,6 +129,38 @@ def stringify_config_value(value: Any) -> str:
     return str(value)
 
 
+def get_example_config_path() -> Path:
+    return _APP_ROOT / EXAMPLE_CONFIG_FILE
+
+
+def load_example_config_defaults() -> list[tuple[str, str, str]]:
+    path = get_example_config_path()
+    if not path.is_file():
+        raise FileNotFoundError(f"Example configuration file not found: {path}")
+    return flatten_yaml_config(load_config(str(path)))
+
+
+def get_sys_config_schema() -> dict[str, list[str]]:
+    """Ordered section -> keys from example_config.yml."""
+    schema: dict[str, list[str]] = {}
+    for cfg_section, cfg_key, _cfg_value in load_example_config_defaults():
+        schema.setdefault(cfg_section, []).append(cfg_key)
+    return schema
+
+
+def get_sys_config_admin_schema() -> dict[str, list[str]]:
+    """Schema keys exposed under Administration -> System Configuration."""
+    schema = {}
+    for cfg_section, keys in get_sys_config_schema().items():
+        admin_keys = [
+            key for key in keys
+            if (cfg_section, key) not in SYS_CONFIG_ADMIN_EXCLUDED_KEYS
+        ]
+        if admin_keys:
+            schema[cfg_section] = admin_keys
+    return schema
+
+
 def flatten_yaml_config(config: dict[str, Any]) -> list[tuple[str, str, str]]:
     entries = []
     for section, values in config.items():
@@ -121,6 +171,25 @@ def flatten_yaml_config(config: dict[str, Any]) -> list[tuple[str, str, str]]:
                 continue
             entries.append((section, key, stringify_config_value(value)))
     return entries
+
+
+def build_ordered_config_from_entries(
+    entries: list[tuple[str, str, str]],
+    schema: Optional[dict[str, list[str]]] = None,
+) -> dict[str, Any]:
+    """Build a config dict using schema key order; omit keys outside the schema."""
+    schema = schema or get_sys_config_schema()
+    values = {(section, key): value for section, key, value in entries}
+    config: dict[str, Any] = {}
+    for section, keys in schema.items():
+        section_values = {}
+        for key in keys:
+            pair = (section, key)
+            if pair in values:
+                section_values[key] = parse_config_value(values[pair])
+        if section_values:
+            config[section] = section_values
+    return config
 
 
 def parse_config_value(value: Any) -> Any:
@@ -154,10 +223,33 @@ def build_config_from_sys_config_entries(entries: list[tuple[str, str, str]]) ->
 
 def export_sys_config_to_yaml(entries: list[tuple[str, str, str]], config_file: Optional[str] = None) -> str:
     path = Path(config_file or DEFAULT_CONFIG_FILE)
-    config = build_config_from_sys_config_entries(entries)
+    config = build_ordered_config_from_entries(entries)
     with path.open('w', encoding='utf-8') as handle:
         yaml.dump(config, handle, default_flow_style=False, sort_keys=False)
     return str(path)
+
+
+def ensure_config_yaml_schema(config_file: Optional[str] = None) -> bool:
+    """Add missing example_config.yml keys to config.yml without overwriting values."""
+    config_file = config_file or DEFAULT_CONFIG_FILE
+    path = Path(config_file)
+    if not path.is_file():
+        return False
+    config = load_config(str(path))
+    example = load_config(str(get_example_config_path()))
+    updated = False
+    for section, values in example.items():
+        if not isinstance(values, dict):
+            continue
+        section_dict = config.setdefault(section, {})
+        for key, default_value in values.items():
+            if key not in section_dict:
+                section_dict[key] = default_value
+                updated = True
+    if updated:
+        with path.open("w", encoding="utf-8") as handle:
+            yaml.dump(config, handle, default_flow_style=False, sort_keys=False)
+    return updated
 
 
 def init_cli_parser() -> argparse.Namespace:

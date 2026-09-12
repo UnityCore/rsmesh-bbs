@@ -43,9 +43,7 @@ Operator reference for running and configuring RSMesh BBS: the mesh client simul
   - [Core Services](#core-services)
   - [Regenerate Main Menu](#regenerate-main-menu)
   - [System Configuration](#system-configuration)
-    - [List Configuration](#list-configuration)
-    - [Add Configuration Entry](#add-configuration-entry)
-    - [Edit / Delete Configuration Entry](#edit--delete-configuration-entry)
+    - [Section menus](#section-menus)
     - [Export Configuration to config.yml](#export-configuration-to-configyml)
   - [Sysadmin Nodes](#sysadmin-nodes)
     - [List display](#list-display)
@@ -571,40 +569,34 @@ Rewrites `mesh_ui/main_menu.txt` from the current configuration **immediately**,
 
 ### System Configuration
 
-Manages the `sys_config` table (runtime settings seeded from `config.yml`).
+Edits required runtime settings stored in the `sys_config` table. Keys and defaults come from `example_config.yml`; startup seeds any missing rows from that file (using values from `config.yml` when present).
 
-| Option | Action |
-|--------|--------|
-| `1` | List Configuration |
-| `2` | Add Configuration Entry |
-| `3` | Edit Configuration Entry |
-| `4` | Delete Configuration Entry |
-| `5` | Export Configuration to config.yml |
-| `0` | Back |
+| Option | Section |
+|--------|---------|
+| `1` | BBS |
+| `2` | Interface |
+| `3` | Schedule |
+| `4` | Export Configuration to config.yml |
+| `0` | Back to Administration |
 
-#### List Configuration
+Core service toggles (`core_bulletins`, `core_mail`, `core_channels`, `mail_commands_on_main_menu`) and `suppress_modules_menu` are **not** edited here — use **Core Services** and **Modules** instead.
 
-Each row: `{index}. Section: {section}  Key: {key}  Value: {value}`
+#### Section menus
 
-#### Add Configuration Entry
+Each section menu uses the page header **`System Configuration : {section}`** (for example `System Configuration : BBS`). Options are numbered rows in the form:
 
-| Prompt | Required |
-|--------|----------|
-| `Section (e.g. bbs, interface):` | Yes |
-| `Key:` | Yes |
-| `Value:` | No (may be empty) |
+```
+1. board_name = RSMesh BBS
+2. eventbus_topic = meshtastic.receive
+...
+0. Back to System Configuration
+```
 
-Fails if the section/key pair already exists.
-
-#### Edit / Delete Configuration Entry
-
-Select by **row number** from the list (1-based index shown in the list, not the database ID): `Enter row # or X=cancel:`
-
-Edit prompts for Section, Key, and Value (Enter = keep current). Renaming section/key deletes the old entry and inserts the new one.
+Select a row to edit that setting. The form shows the **Key** (read-only) and prompts for a new **Value** (`Value [current]:`). Press Enter to keep the current value.
 
 #### Export Configuration to config.yml
 
-Requires at least one configuration entry. Confirmation:
+Writes the known `bbs`, `interface`, and `schedule` keys from `sys_config` back to `config.yml` in schema order. Confirmation:
 
 ```
 This will overwrite config.yml. Continue? (Y/N) [N]:
