@@ -135,6 +135,12 @@ def _dispatch_module_rs_sync(message, interface, sender_node_id):
     from .db_operations import note_rs_wire_version
 
     note_rs_wire_version(sender_node_id, wire_version)
+    logging.info(
+        "Processing %s sync from %s (module %s).",
+        msg_type,
+        sender_node_id,
+        registration.module_id,
+    )
     registration.on_inbound_rs(msg_type, fields, sender_node_id, interface)
     return True
 

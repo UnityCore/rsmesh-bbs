@@ -509,12 +509,26 @@ def sync_pending_records(sync_peers, interface):
 def _sync_module_pending_records(peers, interface):
     manager = getattr(interface, "module_manager", None)
     if manager is None:
+        logging.debug("Module sync skipped; no module manager on interface.")
         return
-    for registration in manager.get_sync_registrations():
+    registrations = manager.get_sync_registrations()
+    if not registrations:
+        logging.debug("Module sync skipped; no module sync registrations.")
+        return
+    for registration in registrations:
         if not manager.is_module_sync_enabled(registration.module_id):
+            logging.debug(
+                "Skipping module %s sync; module disabled.",
+                registration.module_id,
+            )
             continue
         if registration.sync_pending is None:
             continue
+        logging.info(
+            "Running module sync for %s (%s).",
+            registration.record_type,
+            registration.module_id,
+        )
         try:
             registration.sync_pending(peers, interface)
         except Exception as exc:

@@ -1,3 +1,5 @@
+import logging
+
 from rsmesh_bbs.module_loader import MODULE_RESULT_CONTINUE, MODULE_RESULT_EXIT
 from rsmesh_bbs.module_sync import (
     ModuleSyncRegistration,
@@ -103,8 +105,17 @@ class Module:
 
     def _ingest_bbs_list_rs(self, msg_type, fields, sender_node_id, interface):
         if not storage.upsert_from_wire(fields):
+            logging.warning(
+                "Rejected BBS_LIST_SYNC from %s; invalid or incomplete payload.",
+                sender_node_id,
+            )
             return
         node_hex = storage.normalize_node_hex(fields.get("uid"))
+        logging.info(
+            "Ingested BBS_LIST_SYNC for %s from %s.",
+            node_hex or fields.get("uid"),
+            sender_node_id,
+        )
         peer = get_sync_peer_by_bbs_node(
             sender_node_id,
             getattr(interface, "sync_peers", None),
@@ -113,7 +124,13 @@ class Module:
             mark_sync_peers_synced(storage.RECORD_TYPE, node_hex, [peer])
 
     def _sync_pending_bbs_list(self, peers, interface):
-        for entry in storage.list_entries():
+        entries = storage.list_entries()
+        if not entries:
+            logging.info("BBS_LIST_SYNC: no entries to check.")
+            return
+
+        sent_count = 0
+        for entry in entries:
             record_key = entry["node_hex"]
             pending = get_pending_sync_peers(
                 storage.RECORD_TYPE,
@@ -126,15 +143,35 @@ class Module:
             message = build_rs_message(1, storage.wire_type(), storage.entry_to_wire(entry))
             synced = []
             for peer in pending:
+                bbs_node = sync_peer_bbs_node(peer)
+                peer_name = (peer[2] or bbs_node) if len(peer) > 2 else bbs_node
                 if send_sync_message(
                     message,
-                    sync_peer_bbs_node(peer),
+                    bbs_node,
                     interface,
                     sync_peer_protocol(peer),
                 ):
+                    logging.info(
+                        "Sent BBS_LIST_SYNC for %s to %s.",
+                        record_key,
+                        peer_name,
+                    )
                     synced.append(peer)
+                    sent_count += 1
+                else:
+                    logging.warning(
+                        "BBS_LIST_SYNC for %s to %s failed.",
+                        record_key,
+                        peer_name,
+                    )
             if synced:
                 mark_sync_peers_synced(storage.RECORD_TYPE, record_key, synced)
+
+        if sent_count == 0:
+            logging.info(
+                "BBS_LIST_SYNC: checked %d entries; no pending peers.",
+                len(entries),
+            )
 
 
 def queue_entry_sync(node_hex):
