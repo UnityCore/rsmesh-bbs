@@ -1228,25 +1228,77 @@ def _bulletin_mesh_cutoff_date():
     return (datetime.now() - timedelta(days=age_days)).strftime('%Y-%m-%d %H:%M')
 
 
+DEFAULT_MODULES = (
+    ('Node Info', 'node_info', 'I', 'Y', 'Y'),
+    ('Example Hello', 'example_hello', 'E', 'N', 'N'),
+    ('Fortune', 'fortune', 'F', 'Y', 'N'),
+)
+
+
+def _ensure_default_module_row(c, module_name, module_dir, menu_option, enabled, schedule_enabled):
+    c.execute("SELECT 1 FROM modules WHERE module_dir = ?", (module_dir,))
+    if c.fetchone() is not None:
+        return
+    c.execute(
+        "INSERT INTO modules "
+        "(module_name, module_dir, menu_option, enabled, schedule_enabled) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (module_name, module_dir, menu_option, enabled, schedule_enabled),
+    )
+
+
+def _compact_module_ids(c):
+    """Renumber modules to 1..n and remap sync_peer_modules when gaps exist."""
+    rows = c.execute(
+        "SELECT id, module_name, module_dir, menu_option, enabled, schedule_enabled, "
+        "main_menu_visible FROM modules ORDER BY id"
+    ).fetchall()
+    if not rows:
+        return
+
+    current_ids = [row[0] for row in rows]
+    expected_ids = list(range(1, len(rows) + 1))
+    if current_ids == expected_ids:
+        return
+
+    id_map = {old_id: new_id for new_id, old_id in enumerate(current_ids, start=1)}
+    peer_flags = c.execute(
+        "SELECT peer_id, module_id, sync_out, ingest_in FROM sync_peer_modules"
+    ).fetchall()
+
+    c.execute("DELETE FROM modules")
+    for new_id, row in enumerate(rows, start=1):
+        main_menu_visible = row[6] if len(row) > 6 else "N"
+        c.execute(
+            "INSERT INTO modules "
+            "(id, module_name, module_dir, menu_option, enabled, schedule_enabled, main_menu_visible) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (new_id, row[1], row[2], row[3], row[4], row[5], main_menu_visible),
+        )
+
+    for peer_id, module_id, sync_out, ingest_in in peer_flags:
+        new_module_id = id_map.get(module_id)
+        if new_module_id is None:
+            continue
+        c.execute(
+            "INSERT INTO sync_peer_modules (peer_id, module_id, sync_out, ingest_in) "
+            "VALUES (?, ?, ?, ?)",
+            (peer_id, new_module_id, sync_out, ingest_in),
+        )
+
+    count = len(rows)
+    if c.execute("SELECT 1 FROM sqlite_sequence WHERE name = 'modules'").fetchone():
+        c.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'modules'", (count,))
+    else:
+        c.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('modules', ?)", (count,))
+
+
 def _ensure_default_modules(c):
-    c.execute(
-        "INSERT OR IGNORE INTO modules "
-        "(module_name, module_dir, menu_option, enabled, schedule_enabled) "
-        "VALUES (?, ?, ?, ?, ?)",
-        ('Node Info', 'node_info', 'I', 'Y', 'Y'),
-    )
-    c.execute(
-        "INSERT OR IGNORE INTO modules "
-        "(module_name, module_dir, menu_option, enabled, schedule_enabled) "
-        "VALUES (?, ?, ?, ?, ?)",
-        ('Example Hello', 'example_hello', 'E', 'N', 'N'),
-    )
-    c.execute(
-        "INSERT OR IGNORE INTO modules "
-        "(module_name, module_dir, menu_option, enabled, schedule_enabled) "
-        "VALUES (?, ?, ?, ?, ?)",
-        ('Fortune', 'fortune', 'F', 'Y', 'N'),
-    )
+    for module_name, module_dir, menu_option, enabled, schedule_enabled in DEFAULT_MODULES:
+        _ensure_default_module_row(
+            c, module_name, module_dir, menu_option, enabled, schedule_enabled
+        )
+    _compact_module_ids(c)
 
 
 def format_module_menu_option(menu_option):
