@@ -292,7 +292,15 @@ def run_admin_menu(run_submenu, back_label="Modules"):
     return False
 ```
 
-Each action callable should return **`False`** when finished (the submenu redisplays). Return a **line count** only if the core admin should show a “press Enter to continue” prompt (same convention as built-in menus).
+**Return values from submenu actions:** `run_submenu` redisplays the menu after each action. How the screen is cleared depends on what you return:
+
+| Return | When to use |
+|--------|-------------|
+| **`False`** | List/detail flows that call `paginate_display` (or similar) — those helpers manage their own clear and back navigation. |
+| **`None`** (bare `return`) | Form or confirmation flows that end with `finish_action_message` — the submenu shows “Press Enter to continue”, then clears before redrawing the menu. |
+| **Integer** (line count) | Rare; positions the continue prompt when the result screen layout needs it (same convention as core admin). |
+
+Do **not** call `finish_action_message` and then `return False`; the submenu will skip the continue prompt and redraw the menu over the confirmation message.
 
 #### `admin_ui` helpers
 
@@ -305,6 +313,8 @@ Import `admin_ui` from `rsmesh_bbs` (same as core `rsmesh-bbs_admin.py`). Module
 | `list_with_record_view(page_title, list_lines_fn, empty_message, view_fn)` | Paginated list with “Enter ID to view”; calls `view_fn(record_id)` for the chosen row. |
 | `record_detail_lines(fields)` | Build detail lines from `[("Label", value), ...]`; multiline values are indented. |
 | `begin_data_display(page_title)` | Draw the standard SysAdmin header for a data page. |
+| `begin_form_screen(page_title)` | `clear_screen()` then `begin_data_display` — start of an add/edit form. |
+| `finish_action_message(message, page_title)` | Clear screen, show a confirmation or error, draw the footer separator — then return normally (not `False`) so `run_submenu` prompts to continue. |
 | `print_page_header(menu_name=None)` | Header line + separator + blank line. |
 | `print_bold(message)` | Bold, cropped to display width. |
 | `print_separator()` | `=` rule on line 22 layout. |
@@ -333,9 +343,20 @@ if result is not False:
         show_item(item_id)
 ```
 
-For multi-step forms or success messages after add/edit, core admin also uses helpers in `rsmesh-bbs_admin.py` (`begin_form_screen`, `_finish_action_message`, etc.). Module code can import those from the main admin module if needed; list/detail flows should prefer `admin_ui` above.
+Form example (add/edit with confirmation):
 
-See `modules/node_info/node_info_admin.py` and `modules/example_hello/example_hello_admin.py` for minimal examples.
+```python
+def add_item():
+    admin_ui.begin_form_screen("My Module : Add Item")
+    name = admin_ui.input_bold("Name: ").strip()
+    if not name:
+        admin_ui.finish_action_message("Name is required.", "My Module : Add Item")
+        return
+    # ... save ...
+    admin_ui.finish_action_message(f"Item {name} added.", "My Module : Add Item")
+```
+
+See `modules/bbs_list/bbs_list_admin.py` for list + form patterns, and `modules/node_info/node_info_admin.py` / `modules/example_hello/example_hello_admin.py` for minimal list-only examples.
 
 ### Optional config
 

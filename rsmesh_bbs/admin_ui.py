@@ -78,6 +78,22 @@ def begin_data_display(page_title):
     print_page_header(page_title)
 
 
+def begin_form_screen(page_title):
+    clear_screen()
+    begin_data_display(page_title)
+
+
+def finish_action_message(message, page_title):
+    clear_screen()
+    begin_data_display(page_title)
+    message_lines = message.splitlines() or [""]
+    for line in message_lines:
+        _print_no_data(line)
+    lines_used = PAGE_HEADER_LINE_COUNT + len(message_lines)
+    _pad_to_line(MENU_SEPARATOR_LINE, lines_used)
+    print_separator()
+
+
 def _chunk_lines(lines, page_size):
     if not lines:
         return []

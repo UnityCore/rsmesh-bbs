@@ -2262,7 +2262,7 @@ def view_module_sync_status_entry():
     module_row = next((row for _reg, row in rows if str(row[0]) == str(selection).strip()), None)
     if module_row is None:
         _finish_action_message("Module not found.", "Module Sync Status")
-        return False
+        return
 
     lines = get_module_sync_status_lines(module_row[0])
     paginate_display(
@@ -2277,7 +2277,7 @@ def run_module_admin(module_dir_name, back_label="Modules"):
     admin_module = load_module_admin(module_dir_name)
     if admin_module is None or not hasattr(admin_module, "run_admin_menu"):
         _finish_action_message("Module admin is not available.", "Modules")
-        return False
+        return
     admin_module.run_admin_menu(run_submenu, back_label=back_label)
     return False
 
@@ -2286,7 +2286,7 @@ def toggle_suppress_modules_menu_entry():
     ok, message = toggle_suppress_modules_menu()
     if not ok:
         _finish_action_message(message, "Modules")
-        return False
+        return
     state = "on" if is_suppress_modules_menu() else "off"
     _finish_action_message(f"Suppress Modules submenu is now {state}.", "Modules")
 
