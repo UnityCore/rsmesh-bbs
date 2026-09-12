@@ -73,7 +73,12 @@ from rsmesh_bbs.db_operations import (
     set_sync_peer_module_flags,
 )
 from rsmesh_bbs.module_loader import load_module_admin, module_admin_available
-from rsmesh_bbs.module_sync import get_registered_module_sync_rows
+from rsmesh_bbs.module_sync import (
+    format_sync_alerts_summary,
+    get_module_sync_status,
+    get_module_sync_status_lines,
+    get_registered_module_sync_rows,
+)
 from rsmesh_bbs.backup import create_application_backup
 from rsmesh_bbs.core_services import (
     CORE_SERVICE_KEYS,
@@ -175,9 +180,11 @@ def _center_line(text):
     padding = max(0, (DISPLAY_COLUMNS - len(text)) // 2)
     return (" " * padding + text)[:DISPLAY_COLUMNS]
 
-def _format_rs_version_alert_summary(count):
-    noun = "peer" if count == 1 else "peers"
-    return f"Sync alerts: RS version: {count} {noun}"
+def _format_sync_alerts_summary(status):
+    return format_sync_alerts_summary(
+        status["rs_version_alert_count"],
+        status.get("module_sync_alert_peer_count", 0),
+    )
 
 
 def _build_system_status_content_lines(include_sync_peers=True):
@@ -202,7 +209,7 @@ def _build_system_status_content_lines(include_sync_peers=True):
             content_lines.append(f"Sync peers: {peer_nodes}")
         else:
             content_lines.append("Sync peers: none")
-    content_lines.append(_format_rs_version_alert_summary(status['rs_version_alert_count']))
+    content_lines.append(_format_sync_alerts_summary(status))
     content_lines.append("")
     content_lines.append(format_core_services_status_line())
 
@@ -2062,26 +2069,37 @@ def administration_menu():
         ])
 
 
+def _module_sync_summary(module_id):
+    status = get_module_sync_status(module_id)
+    if status is None:
+        return None
+    if status.pending_peer_count:
+        noun = "peer" if status.pending_peer_count == 1 else "peers"
+        return f"Sync pending: {status.pending_peer_count} {noun}"
+    return "Sync: up to date"
+
+
 def _module_lines(rows):
     if not rows:
         return []
     lines = []
     for row in rows:
-        lines.append(
-            join_display_fields(
-                f"ID: {row[0]}",
-                f"Name: {row[1]}",
-                f"Menu: {row[3]}",
-            )
-        )
-        lines.append(
-            "  " + join_display_fields(
-                f"Dir: {row[2]}",
-                f"Enabled: {row[4]}",
-                f"Schedule: {row[5]}",
-                f"Main Menu: {row[6]}",
-            )
-        )
+        fields = [
+            f"ID: {row[0]}",
+            f"Name: {row[1]}",
+            f"Menu: {row[3]}",
+        ]
+        sync_summary = _module_sync_summary(row[0])
+        if sync_summary:
+            fields.append(sync_summary)
+        lines.append(join_display_fields(*fields))
+        detail_fields = [
+            f"Dir: {row[2]}",
+            f"Enabled: {row[4]}",
+            f"Schedule: {row[5]}",
+            f"Main Menu: {row[6]}",
+        ]
+        lines.append("  " + join_display_fields(*detail_fields))
     return lines
 
 
@@ -2128,6 +2146,57 @@ def edit_module_flags_entry():
     _finish_action_message(f"Module {current[1]} updated.", "Edit Module Flags")
 
 
+def _module_sync_status_lines_for_menu():
+    rows = []
+    for _registration, module_row in get_registered_module_sync_rows():
+        status = get_module_sync_status(module_row[0])
+        if status is None:
+            continue
+        summary = _module_sync_summary(module_row[0]) or "Sync: up to date"
+        rows.append(
+            join_display_fields(
+                f"ID: {module_row[0]}",
+                f"Name: {module_row[1]}",
+                summary,
+            )
+        )
+    return rows
+
+
+def view_module_sync_status_entry():
+    rows = get_registered_module_sync_rows()
+    if not rows:
+        paginate_display(
+            "Module Sync Status",
+            [],
+            empty_message="No modules register sync hooks.",
+        )
+        return False
+
+    selection = _paginate_select(
+        "Module Sync Status",
+        _module_sync_status_lines_for_menu(),
+        "No modules register sync hooks.",
+        "Enter module ID or X=cancel:",
+        "View cancelled.",
+    )
+    if _paginate_select_exit(selection):
+        return selection
+
+    module_row = next((row for _reg, row in rows if str(row[0]) == str(selection).strip()), None)
+    if module_row is None:
+        _finish_action_message("Module not found.", "Module Sync Status")
+        return False
+
+    lines = get_module_sync_status_lines(module_row[0])
+    paginate_display(
+        f"Module Sync Status : {module_row[1]}",
+        [line for line in lines if line],
+        empty_message="No sync status available.",
+    )
+    return False
+
+
 def run_module_admin(module_dir_name, back_label="Modules"):
     admin_module = load_module_admin(module_dir_name)
     if admin_module is None or not hasattr(admin_module, "run_admin_menu"):
@@ -2151,6 +2220,7 @@ def modules_admin_menu(back_label="Administration"):
     options = [
         ("List Modules", list_modules),
         ("Edit Module Flags", edit_module_flags_entry),
+        ("Module Sync Status", view_module_sync_status_entry),
         (f"Suppress Modules Submenu ({suppress_state})", toggle_suppress_modules_menu_entry),
     ]
     for row in get_modules():

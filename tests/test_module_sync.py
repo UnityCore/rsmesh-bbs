@@ -6,6 +6,10 @@ from types import SimpleNamespace
 
 from rsmesh_bbs.module_sync import (
     ModuleSyncRegistration,
+    count_module_sync_alert_peers,
+    format_sync_alerts_summary,
+    get_module_sync_status,
+    get_module_sync_status_lines,
     get_module_unsynced_records,
     get_pending_sync_peers,
     mark_sync_peers_synced,
@@ -176,6 +180,89 @@ class TestModuleSyncListUnsynced:
 
         assert len(modules) == 1
         assert modules[0][1] == "event-1"
+
+
+class TestModuleSyncStatusApi:
+    def test_format_sync_alerts_summary(self):
+        assert format_sync_alerts_summary(0, 0) == (
+            "Sync alerts: RS version: 0 peers, Modules: 0 peers"
+        )
+        assert format_sync_alerts_summary(1, 2) == (
+            "Sync alerts: RS version: 1 peer, Modules: 2 peers"
+        )
+
+    def test_get_module_sync_status_reports_pending_peers(self, temp_db):
+        db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1", bbs_name="Peer A")
+        db_operations.add_sync_peer("!peer_b", sync_protocol="rsv1", bbs_name="Peer B")
+
+        manager = ModuleManager()
+        interface = SimpleNamespace(module_manager=manager)
+        manager.register_sync(
+            1,
+            ModuleSyncRegistration(
+                module_id=1,
+                record_type="module:test",
+                list_unsynced=lambda: [("event-1", "Board meeting")],
+            ),
+        )
+
+        status = get_module_sync_status(1, interface)
+
+        assert status is not None
+        assert status.pending_record_count == 1
+        assert status.pending_peer_count == 2
+        assert len(status.records[0].pending_peers) == 2
+
+    def test_count_module_sync_alert_peers_counts_distinct_peers(self, temp_db):
+        db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1")
+        db_operations.add_sync_peer("!peer_b", sync_protocol="rsv1")
+
+        manager = ModuleManager()
+        interface = SimpleNamespace(module_manager=manager)
+        manager.register_sync(
+            1,
+            ModuleSyncRegistration(
+                module_id=1,
+                record_type="module:test",
+                list_unsynced=lambda: [
+                    ("event-1", "One"),
+                    ("event-2", "Two"),
+                ],
+            ),
+        )
+
+        assert count_module_sync_alert_peers(interface) == 2
+
+        mark_sync_peers_synced("module:test", "event-1", db_operations.get_sync_peers())
+        assert count_module_sync_alert_peers(interface) == 2
+
+        mark_sync_peers_synced("module:test", "event-2", db_operations.get_sync_peers())
+        assert count_module_sync_alert_peers(interface) == 0
+
+    def test_sync_status_lines_uses_custom_formatter(self, temp_db):
+        manager = ModuleManager()
+        interface = SimpleNamespace(module_manager=manager)
+        manager.register_sync(
+            1,
+            ModuleSyncRegistration(
+                module_id=1,
+                record_type="module:test",
+                list_unsynced=lambda: [],
+                sync_status_lines=lambda status: [f"Custom: {status.module_name}"],
+            ),
+        )
+
+        lines = get_module_sync_status_lines(1, interface)
+        assert lines == ["Custom: Node Info"]
+
+    def test_system_status_includes_module_sync_alert_peer_count(self, temp_db, monkeypatch):
+        monkeypatch.setattr(
+            "rsmesh_bbs.module_sync.count_module_sync_alert_peers",
+            lambda interface=None: 2,
+        )
+
+        status = db_operations.get_system_status()
+        assert status["module_sync_alert_peer_count"] == 2
 
 
 class TestModuleSyncHelpers:

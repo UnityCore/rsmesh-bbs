@@ -608,7 +608,14 @@ def get_system_status():
         'unread_mail': unread_mail,
         'sync_peers': get_sync_peers(),
         'rs_version_alert_count': count_rs_version_alerts(),
+        'module_sync_alert_peer_count': _count_module_sync_alert_peers(),
     }
+
+
+def _count_module_sync_alert_peers():
+    from .module_sync import count_module_sync_alert_peers
+
+    return count_module_sync_alert_peers()
 
 
 def get_db_connection():

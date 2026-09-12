@@ -88,7 +88,8 @@ Status summary (2026-09-12)
       - B3 [DONE]: admin Add/Edit Sync Peer module sync_out / ingest_in prompts (rsv1 only)
       - B4 [DONE]: List Sync Peers shows module sync restrictions (rsv1; N flags only)
       - B5 [DONE]: list_unsynced hook + List Unsynced Data Modules section
-      - Module admin screens may show module-specific sync status
+      - Module sync status API + Modules admin screen [DONE]:
+        get_module_sync_status / sync_status_lines hook; splash Modules peer count
     - Phase C [NOT STARTED]:
       - First reference module using sync (proof-of-concept; not core Channels)
     - Bulletins, Mail, and Channels remain core sync types (tc2/rsv1 wire formats unchanged)

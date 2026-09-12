@@ -234,12 +234,15 @@ class Module:
 | `on_inbound_rs` | Called for RS wire messages when the module is enabled |
 | `sync_pending` | Called from the background sync worker with all enabled peers |
 | `list_unsynced` | Optional callback returning `(record_key, label)` pairs for admin **List Unsynced Data** |
+| `sync_status_lines` | Optional callback receiving `ModuleSyncStatus`; return custom lines for **Administration → Modules → Module Sync Status** |
 
 **Gating:** inbound and outbound module sync are skipped when the module is disabled in SysAdmin. Per-peer module flags are configured under **Administration → Sync Peers** (rsv1 only).
 
-**Helpers** in `rsmesh_bbs.module_sync`: `get_pending_sync_peers`, `mark_sync_peers_synced`, `reset_record_sync_peers`, `decode_module_rs_payload`, `get_module_unsynced_records`.
+**Helpers** in `rsmesh_bbs.module_sync`: `get_pending_sync_peers`, `mark_sync_peers_synced`, `reset_record_sync_peers`, `decode_module_rs_payload`, `get_module_unsynced_records`, `get_module_sync_status`, `get_module_sync_status_lines`, `count_module_sync_alert_peers`.
 
 **List Unsynced:** implement `list_unsynced` to return keys the module still needs to push. The admin tool shows only records with pending peers according to `record_sync_peers` and peer eligibility.
+
+**Module sync status:** `get_module_sync_status(module_id)` returns a `ModuleSyncStatus` dataclass (pending records, pending peers, per-peer flags). Use it from `{module_dir}_admin.py` to build a module-specific detail screen, or supply `sync_status_lines` on the registration for the core **Module Sync Status** view. The admin splash and **System Status** line shows `Sync alerts: RS version: N peers, Modules: N peers` where the module count is the number of distinct peers with pending module-owned records.
 
 Store module-owned data in the module directory (for example `ctx.path("events.db")`). Track pending sync with `record_sync_peers` and call `reset_record_sync_peers` when a local record changes.
 

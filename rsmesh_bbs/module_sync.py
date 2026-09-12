@@ -28,6 +28,35 @@ _CORE_RS_WIRE_TYPES = frozenset({
 ModuleInboundRsHandler = Callable[[str, dict[str, Any], str, Any], None]
 ModuleSyncPendingHandler = Callable[[list, Any], None]
 ModuleListUnsyncedHandler = Callable[[], list[tuple[str, str]]]
+ModuleSyncStatusLinesHandler = Callable[["ModuleSyncStatus"], list[str]]
+
+
+@dataclass(frozen=True)
+class ModuleSyncPeerPending:
+    peer_id: int
+    bbs_node: str
+    bbs_name: str
+    sync_out: str
+    ingest_in: str
+
+
+@dataclass(frozen=True)
+class ModuleSyncRecordStatus:
+    record_key: str
+    label: str
+    pending_peers: tuple[ModuleSyncPeerPending, ...]
+
+
+@dataclass(frozen=True)
+class ModuleSyncStatus:
+    module_id: int
+    module_name: str
+    module_dir: str
+    record_type: str
+    sync_enabled: bool
+    pending_record_count: int
+    pending_peer_count: int
+    records: tuple[ModuleSyncRecordStatus, ...]
 
 
 @dataclass
@@ -38,6 +67,7 @@ class ModuleSyncRegistration:
     on_inbound_rs: Optional[ModuleInboundRsHandler] = None
     sync_pending: Optional[ModuleSyncPendingHandler] = None
     list_unsynced: Optional[ModuleListUnsyncedHandler] = None
+    sync_status_lines: Optional[ModuleSyncStatusLinesHandler] = None
 
     def normalized_wire_types(self) -> frozenset[str]:
         return frozenset((wire_type or "").strip().upper() for wire_type in self.wire_types if wire_type)
@@ -72,6 +102,193 @@ def module_id_for_record_type(record_type: str, interface) -> Optional[int]:
         if registration.record_type == record_type:
             return registration.module_id
     return None
+
+
+def format_sync_alerts_summary(rs_version_count, module_peer_count=0):
+    rs_noun = "peer" if rs_version_count == 1 else "peers"
+    module_noun = "peer" if module_peer_count == 1 else "peers"
+    return (
+        f"Sync alerts: RS version: {rs_version_count} {rs_noun}, "
+        f"Modules: {module_peer_count} {module_noun}"
+    )
+
+
+def count_module_sync_alert_peers(interface=None) -> int:
+    """Distinct sync peers with at least one pending module-owned record."""
+    pending_peer_ids = set()
+    for status in _iter_module_sync_statuses(interface):
+        for record in status.records:
+            for peer in record.pending_peers:
+                pending_peer_ids.add(peer.peer_id)
+    return len(pending_peer_ids)
+
+
+def get_module_sync_status(module_id, interface=None) -> Optional[ModuleSyncStatus]:
+    """Return sync status details for a module developer admin screen."""
+    for status in _iter_module_sync_statuses(interface):
+        if status.module_id == int(module_id):
+            return status
+    return None
+
+
+def get_module_sync_status_lines(module_id, interface=None) -> list[str]:
+    """Return display lines for a module sync status screen."""
+    status = get_module_sync_status(module_id, interface)
+    if status is None:
+        return []
+
+    registration = _registration_for_module(module_id, interface)
+    if registration is not None and registration.sync_status_lines is not None:
+        try:
+            return list(registration.sync_status_lines(status) or [])
+        except Exception as exc:
+            import logging
+
+            logging.error(
+                "Module %s sync_status_lines failed: %s",
+                module_id,
+                exc,
+                exc_info=True,
+            )
+
+    return _default_module_sync_status_lines(status)
+
+
+def _registration_for_module(module_id, interface):
+    manager = _module_manager(interface)
+    if manager is None:
+        return None
+    module_id = int(module_id)
+    for registration in manager.get_sync_registrations():
+        if registration.module_id == module_id:
+            return registration
+    return None
+
+
+def _module_manager(interface):
+    if interface is not None:
+        return getattr(interface, "module_manager", None)
+    from types import SimpleNamespace
+
+    from .module_loader import ModuleManager
+
+    manager = ModuleManager()
+    manager.load_modules(SimpleNamespace(module_manager=manager))
+    return manager
+
+
+def _iter_module_sync_statuses(interface=None):
+    from .db_operations import (
+        _resolve_peer_id,
+        get_module_by_id,
+        get_sync_peer_module_flags,
+        get_sync_peers,
+    )
+
+    manager = _module_manager(interface)
+    if manager is None:
+        return
+
+    peers = get_sync_peers()
+    for registration in manager.get_sync_registrations():
+        module_row = get_module_by_id(registration.module_id)
+        if module_row is None:
+            continue
+        module_name = module_row[1]
+        module_dir = module_row[2]
+        sync_enabled = manager.is_module_sync_enabled(registration.module_id)
+        records = []
+        pending_peer_ids = set()
+
+        if sync_enabled and registration.list_unsynced is not None:
+            try:
+                unsynced_items = registration.list_unsynced() or []
+            except Exception as exc:
+                import logging
+
+                logging.error(
+                    "Module %s list_unsynced failed: %s",
+                    registration.module_id,
+                    exc,
+                    exc_info=True,
+                )
+                unsynced_items = []
+
+            for record_key, label in unsynced_items:
+                record_key = (record_key or "").strip()
+                if not record_key:
+                    continue
+                pending_peers = []
+                for peer in get_pending_sync_peers(
+                    registration.record_type,
+                    record_key,
+                    peers,
+                    interface,
+                ):
+                    peer_id = _resolve_peer_id(peer)
+                    if peer_id is None:
+                        continue
+                    sync_out, ingest_in = get_sync_peer_module_flags(
+                        peer_id,
+                        registration.module_id,
+                    )
+                    pending_peers.append(
+                        ModuleSyncPeerPending(
+                            peer_id=peer_id,
+                            bbs_node=peer[1],
+                            bbs_name=(peer[2] or "") if len(peer) > 2 else "",
+                            sync_out=sync_out,
+                            ingest_in=ingest_in,
+                        )
+                    )
+                    pending_peer_ids.add(peer_id)
+                if pending_peers:
+                    records.append(
+                        ModuleSyncRecordStatus(
+                            record_key=record_key,
+                            label=label or record_key,
+                            pending_peers=tuple(pending_peers),
+                        )
+                    )
+
+        yield ModuleSyncStatus(
+            module_id=registration.module_id,
+            module_name=module_name,
+            module_dir=module_dir,
+            record_type=registration.record_type,
+            sync_enabled=sync_enabled,
+            pending_record_count=len(records),
+            pending_peer_count=len(pending_peer_ids),
+            records=tuple(records),
+        )
+
+
+def _default_module_sync_status_lines(status: ModuleSyncStatus) -> list[str]:
+    lines = [
+        f"Module: {status.module_name}",
+        f"Record type: {status.record_type}",
+        f"Sync enabled: {'Y' if status.sync_enabled else 'N'}",
+        f"Pending records: {status.pending_record_count}",
+        f"Pending peers: {status.pending_peer_count}",
+    ]
+    if not status.records:
+        lines.append("No pending module sync records.")
+        return lines
+
+    for record in status.records:
+        lines.append(f"Record {record.record_key}: {record.label}")
+        peer_labels = []
+        for peer in record.pending_peers:
+            name = peer.bbs_name or peer.bbs_node
+            flags = []
+            if peer.sync_out != "Y":
+                flags.append("out=N")
+            if peer.ingest_in != "Y":
+                flags.append("in=N")
+            suffix = f" ({', '.join(flags)})" if flags else ""
+            peer_labels.append(f"{name}{suffix}")
+        lines.append("  Pending peers: " + ", ".join(peer_labels))
+    return lines
 
 
 def get_module_unsynced_records(interface=None) -> list[tuple[str, str, str, list[str]]]:
