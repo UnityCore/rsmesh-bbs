@@ -32,8 +32,8 @@ class TestRegisteredModuleSyncRows:
             1,
             ModuleSyncRegistration(
                 module_id=1,
-                record_type="module:test",
-                wire_types=("TESTEVENT",),
+                record_type="module:node_info",
+                wire_suffixes=("EVENT",),
             ),
         )
         rows = [(reg, db_operations.get_module_by_id(1)) for reg in manager.get_sync_registrations()]
@@ -59,7 +59,7 @@ class TestSyncPeerModuleAdminPrompt:
         manager = ModuleManager()
         manager.register_sync(
             1,
-            ModuleSyncRegistration(module_id=1, record_type="module:test"),
+            ModuleSyncRegistration(module_id=1, record_type="module:node_info"),
         )
         monkeypatch.setattr(
             admin_module,
@@ -81,7 +81,7 @@ class TestSyncPeerModuleAdminPrompt:
         manager = ModuleManager()
         manager.register_sync(
             1,
-            ModuleSyncRegistration(module_id=1, record_type="module:test"),
+            ModuleSyncRegistration(module_id=1, record_type="module:node_info"),
         )
         monkeypatch.setattr(
             admin_module,
@@ -115,7 +115,7 @@ class TestSyncPeerModuleListDisplay:
         module_row = db_operations.get_module_by_id(1)
         module_rows = [
             (
-                ModuleSyncRegistration(module_id=1, record_type="module:test"),
+                ModuleSyncRegistration(module_id=1, record_type="module:node_info"),
                 module_row,
             )
         ]
@@ -157,7 +157,7 @@ class TestSyncPeerModuleListDisplay:
             "get_registered_module_sync_rows",
             lambda: [
                 (
-                    ModuleSyncRegistration(module_id=1, record_type="module:test"),
+                    ModuleSyncRegistration(module_id=1, record_type="module:node_info"),
                     module_row,
                 )
             ],

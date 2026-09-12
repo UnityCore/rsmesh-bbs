@@ -601,7 +601,9 @@ Each section menu uses the page header **`System Configuration : {section}`** (f
 0. Back to System Configuration
 ```
 
-Select a row to edit that setting. The form shows the **Key** (read-only) and prompts for a new **Value** (`Value [current]:`). Press Enter to keep the current value.
+Select a row to edit that setting. The form shows the **Key** (read-only) and prompts for a new **Value**. Editors are type-aware where defined: **Y/N** for booleans, constrained choices for `interface.type`, numeric validation for schedule minutes, and format checks for node IDs and radio short names. Press Enter to keep the current value.
+
+Under **Interface**, optional `node_id`, `short_name`, and `long_name` identify this BBS on the mesh. Leave them empty to use values from the connected radio when available. Modules can read these through the read-only BBS info API.
 
 #### Export Configuration to config.yml
 

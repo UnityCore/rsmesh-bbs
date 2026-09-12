@@ -24,6 +24,9 @@ class TestSysConfigSchema:
         assert "mail_commands_on_main_menu" not in admin_schema["bbs"]
         assert "database_version" not in admin_schema["bbs"]
         assert "board_name" in admin_schema["bbs"]
+        assert "node_id" in admin_schema["interface"]
+        assert "short_name" in admin_schema["interface"]
+        assert "long_name" in admin_schema["interface"]
 
     def test_database_version_cannot_be_modified_via_sys_config_api(self, temp_db):
         from rsmesh_bbs.release_migration import set_stored_database_version

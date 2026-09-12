@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 from rsmesh_bbs.module_sync import (
     ModuleSyncRegistration,
+    build_module_wire_type,
     count_module_sync_alert_peers,
     format_sync_alerts_summary,
     get_module_sync_status,
@@ -30,17 +31,57 @@ def _register_sync(manager, module_id, **kwargs):
     return registration
 
 
+class TestModuleWireTypes:
+    def test_build_module_wire_type_prefixes_module_dir(self):
+        assert build_module_wire_type("bbs_list", "sync") == "BBS_LIST_SYNC"
+        assert build_module_wire_type("node_info", "delete") == "NODE_INFO_DELETE"
+
+
 class TestModuleSyncRegistration:
-    def test_register_sync_tracks_wire_types(self):
+    def test_register_sync_tracks_wire_suffixes(self, temp_db):
         manager = ModuleManager()
         _register_sync(
             manager,
             1,
-            record_type="module:test",
-            wire_types=("TestEvent",),
+            record_type="module:node_info",
+            wire_suffixes=("EVENT",),
         )
 
-        assert manager.lookup_sync_by_wire_type("TESTEVENT") is not None
+        assert manager.lookup_sync_by_wire_type("NODE_INFO_EVENT") is not None
+
+    def test_register_sync_rejects_record_type_mismatch(self, temp_db):
+        manager = ModuleManager()
+        _register_sync(
+            manager,
+            1,
+            record_type="module:wrong_dir",
+            wire_suffixes=("EVENT",),
+        )
+
+        assert manager.lookup_sync_by_wire_type("NODE_INFO_EVENT") is None
+
+    def test_register_sync_rejects_wire_type_collision(self, temp_db):
+        manager = ModuleManager()
+        _register_sync(
+            manager,
+            1,
+            record_type="module:node_info",
+            wire_suffixes=("SYNC",),
+        )
+        _register_sync(
+            manager,
+            4,
+            record_type="module:bbs_list",
+            legacy_wire_types=("NODE_INFO_SYNC",),
+            wire_suffixes=("SYNC",),
+        )
+
+        node_info_registration = manager.lookup_sync_by_wire_type("NODE_INFO_SYNC")
+        bbs_list_registration = manager.lookup_sync_by_wire_type("BBS_LIST_SYNC")
+        assert node_info_registration is not None
+        assert node_info_registration.module_id == 1
+        assert bbs_list_registration is not None
+        assert bbs_list_registration.module_id == 4
 
 
 class TestModuleSyncInbound:
@@ -52,18 +93,18 @@ class TestModuleSyncInbound:
         _register_sync(
             interface.module_manager,
             1,
-            record_type="module:test",
-            wire_types=("TESTEVENT",),
+            record_type="module:node_info",
+            wire_suffixes=("EVENT",),
             on_inbound_rs=lambda msg_type, fields, sender, iface: received.append(
                 (msg_type, fields, sender)
             ),
         )
 
         payload = {"uid": "abc123", "body": "hello"}
-        message = build_rs_message(1, "TESTEVENT", payload)
+        message = build_rs_message(1, "NODE_INFO_EVENT", payload)
         _process_rs_sync_message(0, message, interface, "!peer_a")
 
-        assert received == [("TESTEVENT", payload, "!peer_a")]
+        assert received == [("NODE_INFO_EVENT", payload, "!peer_a")]
 
     def test_inbound_rs_skipped_when_module_disabled(self, temp_db):
         interface = MockMeshInterface()
@@ -73,13 +114,13 @@ class TestModuleSyncInbound:
         _register_sync(
             interface.module_manager,
             1,
-            record_type="module:test",
-            wire_types=("TESTEVENT",),
+            record_type="module:node_info",
+            wire_suffixes=("EVENT",),
             on_inbound_rs=lambda msg_type, fields, sender, iface: received.append(sender),
         )
         db_operations.update_module_flags(1, enabled="N")
 
-        message = build_rs_message(1, "TESTEVENT", {"uid": "abc123"})
+        message = build_rs_message(1, "NODE_INFO_EVENT", {"uid": "abc123"})
         _process_rs_sync_message(0, message, interface, "!peer_a")
 
         assert received == []
@@ -94,7 +135,7 @@ class TestModuleSyncOutbound:
         _register_sync(
             interface.module_manager,
             1,
-            record_type="module:test",
+            record_type="module:node_info",
             sync_pending=lambda peers, iface: calls.append(list(peers)),
         )
 
@@ -111,7 +152,7 @@ class TestModuleSyncOutbound:
         _register_sync(
             interface.module_manager,
             1,
-            record_type="module:test",
+            record_type="module:node_info",
             sync_pending=lambda peers, iface: calls.append(True),
         )
         db_operations.update_module_flags(1, enabled="N")
@@ -132,7 +173,7 @@ class TestModuleSyncListUnsynced:
             1,
             ModuleSyncRegistration(
                 module_id=1,
-                record_type="module:test",
+                record_type="module:node_info",
                 list_unsynced=lambda: [("event-1", "Board meeting")],
             ),
         )
@@ -154,11 +195,11 @@ class TestModuleSyncListUnsynced:
             1,
             ModuleSyncRegistration(
                 module_id=1,
-                record_type="module:test",
+                record_type="module:node_info",
                 list_unsynced=lambda: [("event-1", "Board meeting")],
             ),
         )
-        mark_sync_peers_synced("module:test", "event-1", db_operations.get_sync_peers())
+        mark_sync_peers_synced("module:node_info", "event-1", db_operations.get_sync_peers())
 
         assert get_module_unsynced_records(interface) == []
 
@@ -171,7 +212,7 @@ class TestModuleSyncListUnsynced:
             1,
             ModuleSyncRegistration(
                 module_id=1,
-                record_type="module:test",
+                record_type="module:node_info",
                 list_unsynced=lambda: [("event-1", "Board meeting")],
             ),
         )
@@ -201,7 +242,7 @@ class TestModuleSyncStatusApi:
             1,
             ModuleSyncRegistration(
                 module_id=1,
-                record_type="module:test",
+                record_type="module:node_info",
                 list_unsynced=lambda: [("event-1", "Board meeting")],
             ),
         )
@@ -223,7 +264,7 @@ class TestModuleSyncStatusApi:
             1,
             ModuleSyncRegistration(
                 module_id=1,
-                record_type="module:test",
+                record_type="module:node_info",
                 list_unsynced=lambda: [
                     ("event-1", "One"),
                     ("event-2", "Two"),
@@ -233,10 +274,10 @@ class TestModuleSyncStatusApi:
 
         assert count_module_sync_alert_peers(interface) == 2
 
-        mark_sync_peers_synced("module:test", "event-1", db_operations.get_sync_peers())
+        mark_sync_peers_synced("module:node_info", "event-1", db_operations.get_sync_peers())
         assert count_module_sync_alert_peers(interface) == 2
 
-        mark_sync_peers_synced("module:test", "event-2", db_operations.get_sync_peers())
+        mark_sync_peers_synced("module:node_info", "event-2", db_operations.get_sync_peers())
         assert count_module_sync_alert_peers(interface) == 0
 
     def test_sync_status_lines_uses_custom_formatter(self, temp_db):
@@ -246,7 +287,7 @@ class TestModuleSyncStatusApi:
             1,
             ModuleSyncRegistration(
                 module_id=1,
-                record_type="module:test",
+                record_type="module:node_info",
                 list_unsynced=lambda: [],
                 sync_status_lines=lambda status: [f"Custom: {status.module_name}"],
             ),
@@ -277,16 +318,16 @@ class TestModuleSyncHelpers:
         _register_sync(
             interface.module_manager,
             1,
-            record_type="module:test",
+            record_type="module:node_info",
         )
 
-        pending = get_pending_sync_peers("module:test", "key1", peers, interface)
+        pending = get_pending_sync_peers("module:node_info", "key1", peers, interface)
         assert len(pending) == 2
 
-        mark_sync_peers_synced("module:test", "key1", [peer_a])
-        pending = get_pending_sync_peers("module:test", "key1", peers, interface)
+        mark_sync_peers_synced("module:node_info", "key1", [peer_a])
+        pending = get_pending_sync_peers("module:node_info", "key1", peers, interface)
         assert len(pending) == 1
 
-        reset_record_sync_peers("module:test", "key1")
-        pending = get_pending_sync_peers("module:test", "key1", peers, interface)
+        reset_record_sync_peers("module:node_info", "key1")
+        pending = get_pending_sync_peers("module:node_info", "key1", peers, interface)
         assert len(pending) == 2

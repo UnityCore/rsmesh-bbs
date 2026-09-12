@@ -289,9 +289,34 @@ def init_cli_parser() -> argparse.Namespace:
 
 
 def get_board_name(config_file: Optional[str] = None) -> str:
-    config = load_config(config_file)
-    bbs = config.get('bbs', {})
-    return bbs.get('board_name', 'RSNetwork BBS')
+    try:
+        from .db_operations import get_sys_config_value
+
+        value = get_sys_config_value("bbs", "board_name")
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    except Exception:
+        pass
+
+    if config_file is not None:
+        path = Path(config_file)
+        if path.is_file():
+            config = load_config(str(path))
+            bbs = config.get("bbs", {})
+            name = (bbs.get("board_name") or "").strip()
+            if name:
+                return name
+
+    try:
+        config = load_config(config_file)
+        bbs = config.get("bbs", {})
+        name = (bbs.get("board_name") or "").strip()
+        if name:
+            return name
+    except Exception:
+        pass
+
+    return "RSNetwork BBS"
 
 
 def format_board_banner(board_name: str, footer: str = None) -> str:

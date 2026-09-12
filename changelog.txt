@@ -45,7 +45,20 @@ Module sync (Phase B5)
 
 Module sync (Phase C)
   - BBS List module (bbs_list): directory of boards with sync interest flag
-  - rsv1 BBSLIST wire sync; mesh browse; SysAdmin add/edit/register this BBS
+  - rsv1 BBS_LIST_SYNC wire sync
+  - mesh browse; SysAdmin add/edit/register this BBS
+
+Module sync wire types
+  - Modules register wire_suffixes; framework expands to {MODULE_DIR}_{SUFFIX}
+  - record_type must be module:<module_dir>; duplicate wire types rejected at load
+  - ctx.sync_wire_type(suffix) helper for outbound RS messages
+
+Configuration and module API
+  - get_board_name() reads bbs.board_name from sys_config (config.yml fallback)
+  - Type-aware System Configuration editors (bool, int, enum, node_id, short_name)
+  - interface.node_id, short_name, long_name in sys_config and example_config.yml
+  - get_bbs_info() / ctx.get_bbs_info() for read-only board and radio identity
+  - ctx.register_config() and ctx.get_config() for module-scoped sys_config keys
 
 Mesh client (rsmesh-bbs_client.py)
   - --verbose / -v: print (no reply) when the BBS sends no response (default silent)

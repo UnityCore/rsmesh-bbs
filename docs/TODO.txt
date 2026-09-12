@@ -65,7 +65,9 @@ Status summary (2026-09-12)
     - Missing config.yml keys merged from example_config.yml defaults on startup
     - Export writes schema-ordered bbs/interface/schedule keys to config.yml
     - Core Services / mail layout / suppress_modules_menu excluded from this screen
-    - Remaining (optional): type-aware editors; module-registered sys_config keys
+    - Type-aware editors [DONE]: bool/int/enum/node_id/short_name validation in admin
+    - Module sys_config API [DONE]: ctx.register_config / ctx.get_config (module:<dir> only)
+    - BBS identity API [DONE]: get_bbs_info / ctx.get_bbs_info; interface radio keys in sys_config
 
 - Mesh client virtual radio config [DONE]
     - config_client.yml server section: virtual_node_id, virtual_short_name, virtual_long_name
@@ -91,7 +93,9 @@ Status summary (2026-09-12)
       - Module sync status API + Modules admin screen [DONE]:
         get_module_sync_status / sync_status_lines hook; splash Modules peer count
     - Phase C [DONE]:
-      - modules/bbs_list: synced directory of mesh BBS boards (rsv1 BBSLIST wire type)
+      - modules/bbs_list: synced directory of mesh BBS boards (rsv1 BBS_LIST_SYNC wire type)
+      - Wire suffix policy [DONE]: {module_dir}_{suffix} expansion; collision rejection;
+        record_type module:<module_dir> enforcement; legacy_wire_types for inbound aliases
     - Bulletins, Mail, and Channels remain core sync types (tc2/rsv1 wire formats unchanged)
 
 TODO for Release 1.2

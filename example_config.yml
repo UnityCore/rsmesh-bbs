@@ -44,6 +44,9 @@ bbs:
 #   Windows: COM3
 # type - serial for USB connected devices, or tcp for network-connected ESP32 devices
 # hostname - required when type is tcp (not WisBlock), e.g. 192.168.1.100
+# node_id - optional BBS radio node ID (! + 8 hex digits); empty uses connected radio
+# short_name - optional 4-character radio short name; empty uses connected radio
+# long_name - optional radio long name; empty uses connected radio
 
 interface:
   port: /dev/ttyUSB0
@@ -52,6 +55,9 @@ interface:
   # hostname: 192.168.1.100
   type: serial
   # type: tcp
+  node_id: ""
+  short_name: ""
+  long_name: ""
 
 
 ##########################

@@ -1,5 +1,5 @@
 from rsmesh_bbs import admin_ui
-from rsmesh_bbs.config_init import get_board_name
+from rsmesh_bbs.bbs_info import get_bbs_info
 
 from bbs_list import module as bbs_list_module
 from bbs_list import storage
@@ -58,9 +58,12 @@ def add_entry():
 
 def register_this_bbs():
     admin_ui.print_page_header("BBS List : Register This BBS")
-    board_name = get_board_name()
-    node_hex = admin_ui.input_bold("Node hex ID for this BBS: ").strip()
-    short_name = admin_ui.input_bold("Short name (4 chars): ").strip()
+    info = get_bbs_info()
+    board_name = info.board_name
+    node_default = info.node_id or ""
+    short_default = info.short_name or ""
+    node_hex = admin_ui.input_bold(f"Node hex ID for this BBS [{node_default}]: ").strip() or node_default
+    short_name = admin_ui.input_bold(f"Short name (4 chars) [{short_default}]: ").strip() or short_default
     location = admin_ui.input_bold("Location (optional): ").strip()
     sync_interest = _normalize_yn(
         admin_ui.input_bold("Interested in sync arrangements (Y/N) [Y]: "),

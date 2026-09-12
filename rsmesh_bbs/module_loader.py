@@ -6,7 +6,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .db_operations import get_modules, get_module_by_id
-from .module_sync import ModuleSyncRegistration, _CORE_RS_WIRE_TYPES
+from .module_sync import (
+    ModuleSyncRegistration,
+    _CORE_RS_WIRE_TYPES,
+    expected_module_record_type,
+)
 
 APP_ROOT = Path(__file__).resolve().parent.parent
 MODULES_DIR = APP_ROOT / "modules"
@@ -89,6 +93,39 @@ class ModuleContext:
         if self._manager is not None:
             self._manager.register_sync(self.id, registration)
 
+    def sync_wire_type(self, suffix: str) -> str:
+        from .module_sync import build_module_wire_type
+
+        wire_type = build_module_wire_type(self.module_dir_name, suffix)
+        if not wire_type:
+            raise ValueError(
+                f"Invalid module sync wire suffix '{suffix}' for module {self.module_dir_name}"
+            )
+        return wire_type
+
+    def get_bbs_info(self):
+        from .bbs_info import get_bbs_info
+
+        return get_bbs_info(self.interface)
+
+    def register_config(self, key, default="", editor="string"):
+        from .module_config import ensure_module_config_value, validate_module_config_key
+
+        key = (key or "").strip()
+        if not validate_module_config_key(key):
+            raise ValueError(f"Invalid module config key: {key}")
+        ensure_module_config_value(self.module_dir_name, key, default)
+        if self._manager is not None:
+            self._manager.register_module_config(self.module_dir_name, key, editor)
+
+    def get_config(self, key, default=None):
+        from .module_config import get_module_config_value, validate_module_config_key
+
+        key = (key or "").strip()
+        if not validate_module_config_key(key):
+            raise ValueError(f"Invalid module config key: {key}")
+        return get_module_config_value(self.module_dir_name, key, default)
+
 
 class ModuleManager:
     def __init__(self):
@@ -97,6 +134,7 @@ class ModuleManager:
         self._schedules = []
         self._sync_registrations: list[ModuleSyncRegistration] = []
         self._sync_wire_types: dict[str, ModuleSyncRegistration] = {}
+        self._module_config_keys: dict[str, dict[str, str]] = {}
 
     def register_service(self, name, service):
         self._services[name] = service
@@ -110,20 +148,53 @@ class ModuleManager:
         )
 
     def register_sync(self, module_id, registration: ModuleSyncRegistration):
+        module_row = get_module_by_id(module_id)
+        if module_row is None:
+            logging.error("Cannot register sync for unknown module id %s", module_id)
+            return
+
+        module_dir = module_row[2]
+        expected_record_type = expected_module_record_type(module_dir)
+        if registration.record_type != expected_record_type:
+            logging.error(
+                "Module %s (%s) record_type must be %s; got %s",
+                module_id,
+                module_dir,
+                expected_record_type,
+                registration.record_type,
+            )
+            return
+
         registration.module_id = int(module_id)
         self._sync_registrations.append(registration)
-        for wire_type in registration.normalized_wire_types():
+        for wire_type in registration.iter_registered_wire_types(module_dir):
             if wire_type in _CORE_RS_WIRE_TYPES:
-                logging.warning(
-                    "Module %s cannot register reserved RS wire type %s",
+                logging.error(
+                    "Module %s (%s) cannot register reserved RS wire type %s",
                     module_id,
+                    module_dir,
                     wire_type,
+                )
+                continue
+            existing = self._sync_wire_types.get(wire_type)
+            if existing is not None and existing.module_id != registration.module_id:
+                logging.error(
+                    "RS wire type %s already registered by module %s; "
+                    "skipping registration for module %s (%s)",
+                    wire_type,
+                    existing.module_id,
+                    module_id,
+                    module_dir,
                 )
                 continue
             self._sync_wire_types[wire_type] = registration
 
     def get_sync_registrations(self):
         return list(self._sync_registrations)
+
+    def register_module_config(self, module_dir, key, editor="string"):
+        keys = self._module_config_keys.setdefault(module_dir, {})
+        keys[key] = editor
 
     def lookup_sync_by_wire_type(self, msg_type):
         return self._sync_wire_types.get((msg_type or "").strip().upper())

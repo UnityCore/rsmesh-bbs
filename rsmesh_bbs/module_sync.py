@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
+
+_WIRE_SUFFIX_RE = re.compile(r"^[A-Z0-9_]{1,16}$")
 
 CORE_SYNC_PREFIXES = (
     "RS|",
@@ -59,18 +62,66 @@ class ModuleSyncStatus:
     records: tuple[ModuleSyncRecordStatus, ...]
 
 
+def normalize_module_wire_prefix(module_dir: str) -> str:
+    text = (module_dir or "").strip().upper()
+    text = re.sub(r"[^A-Z0-9]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_")
+    return text
+
+
+def normalize_wire_suffix(suffix: str) -> Optional[str]:
+    text = (suffix or "").strip().upper()
+    text = re.sub(r"[^A-Z0-9]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_")
+    if not text or not _WIRE_SUFFIX_RE.match(text):
+        return None
+    return text
+
+
+def build_module_wire_type(module_dir: str, suffix: str) -> Optional[str]:
+    prefix = normalize_module_wire_prefix(module_dir)
+    normalized_suffix = normalize_wire_suffix(suffix)
+    if not prefix or not normalized_suffix:
+        return None
+    return f"{prefix}_{normalized_suffix}"
+
+
+def expected_module_record_type(module_dir: str) -> str:
+    return f"module:{(module_dir or '').strip()}"
+
+
+def normalize_legacy_wire_type(wire_type: str) -> Optional[str]:
+    text = (wire_type or "").strip().upper()
+    text = re.sub(r"[^A-Z0-9]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_")
+    if not text or not _WIRE_SUFFIX_RE.match(text):
+        return None
+    return text
+
+
 @dataclass
 class ModuleSyncRegistration:
     module_id: int
     record_type: str
-    wire_types: tuple[str, ...] = ()
+    wire_suffixes: tuple[str, ...] = ()
+    legacy_wire_types: tuple[str, ...] = ()
     on_inbound_rs: Optional[ModuleInboundRsHandler] = None
     sync_pending: Optional[ModuleSyncPendingHandler] = None
     list_unsynced: Optional[ModuleListUnsyncedHandler] = None
     sync_status_lines: Optional[ModuleSyncStatusLinesHandler] = None
 
-    def normalized_wire_types(self) -> frozenset[str]:
-        return frozenset((wire_type or "").strip().upper() for wire_type in self.wire_types if wire_type)
+    def iter_registered_wire_types(self, module_dir: str):
+        seen = set()
+        for suffix in self.wire_suffixes:
+            wire_type = build_module_wire_type(module_dir, suffix)
+            if wire_type and wire_type not in seen:
+                seen.add(wire_type)
+                yield wire_type
+        for legacy in self.legacy_wire_types:
+            wire_type = normalize_legacy_wire_type(legacy)
+            if wire_type and wire_type not in seen:
+                seen.add(wire_type)
+                yield wire_type
 
 
 def get_registered_module_sync_rows():

@@ -142,6 +142,16 @@ Return `MODULE_RESULT_EXIT` when the user should return to the main menu (for ex
 | `ctx.register_service(name, service)` | Register a shared object other code can look up. |
 | `ctx.register_schedule(name, minutes, callback)` | Run `callback(ctx)` on an interval while the module is enabled. |
 | `ctx.register_sync(registration)` | Register optional peer sync handlers (`ModuleSyncRegistration`). |
+| `ctx.get_bbs_info()` | Read-only BBS identity (`board_name`, radio `node_id` / `short_name` / `long_name`). |
+| `ctx.register_config(key, default=..., editor=...)` | Declare module-owned config stored in `sys_config` under `module:<module_dir>`. |
+| `ctx.get_config(key, default=...)` | Read this module's config only (other sections are not accessible through the API). |
+| `ctx.sync_wire_type(suffix)` | Expand a sync suffix to the on-wire RS type for this module. |
+
+#### BBS identity (read-only)
+
+Use `ctx.get_bbs_info()` when a module needs the local board name or radio identity. Values come from `sys_config` when set (`interface.node_id`, `short_name`, `long_name`, and `bbs.board_name`), otherwise from the connected Meshtastic interface when available.
+
+Modules cannot write system configuration. Use `register_config` / `get_config` for module-private settings.
 
 #### Sending mesh messages safely
 
@@ -181,12 +191,15 @@ Interval is in **minutes**. Tasks run only while the module is enabled and sched
 
 ### Peer sync (Phase A, rsv1 only)
 
-Enabled modules may register optional sync participation from `on_load`. Module sync uses the **rsv1** RS wire envelope (`RS|1|TYPE|{json}`) only; the fixed **tc2** pipe format is for core Bulletins, Mail, and Channels and does not support custom module types. Modules use their own `record_type` string (for example `module:events`) in the shared `record_sync_peers` table.
+Enabled modules may register optional sync participation from `on_load`. Module sync uses the **rsv1** RS wire envelope (`RS|1|TYPE|{json}`) only; the fixed **tc2** pipe format is for core Bulletins, Mail, and Channels and does not support custom module types. Modules use their own `record_type` string (`module:<module_dir>`) in the shared `record_sync_peers` table.
+
+**Wire type naming:** register short **suffixes** only (for example `UPSERT`, `DELETE`). The framework expands them to `{MODULE_DIR}_{SUFFIX}` on the wire (module directory `events` + suffix `DELETE` → `EVENTS_DELETE`). Use brief module directory names to keep RS envelopes small and avoid mesh chunking. Before adding a new module, confirm `modules/<module_dir>/` does not already exist on the target BBS.
 
 ```python
 from rsmesh_bbs.module_loader import MODULE_RESULT_CONTINUE, MODULE_RESULT_EXIT
 from rsmesh_bbs.module_sync import (
     ModuleSyncRegistration,
+    build_module_wire_type,
     get_pending_sync_peers,
     mark_sync_peers_synced,
     reset_record_sync_peers,
@@ -200,7 +213,7 @@ class Module:
         ctx.register_sync(ModuleSyncRegistration(
             module_id=ctx.id,
             record_type="module:events",
-            wire_types=("EVENT",),
+            wire_suffixes=("UPSERT", "DELETE"),
             on_inbound_rs=self._ingest_event_rs,
             sync_pending=self._sync_pending_events,
         ))
@@ -216,7 +229,7 @@ class Module:
                 continue
             synced = []
             for peer in pending:
-                message = build_rs_message(1, "EVENT", data)
+                message = build_rs_message(1, build_module_wire_type("events", "UPSERT"), data)
                 if send_sync_message(
                     message,
                     sync_peer_bbs_node(peer),
@@ -229,12 +242,15 @@ class Module:
 
 | Registration field | Purpose |
 |--------------------|---------|
-| `record_type` | Namespace for `record_sync_peers` rows (use a `module:` prefix) |
-| `wire_types` | RS envelope types owned by this module (`RS\|1\|TYPE\|{json}`) |
+| `record_type` | Must be `module:<module_dir>` (matches the module's directory name under `modules/`) |
+| `wire_suffixes` | Short operation names; expanded to `{MODULE_DIR}_{SUFFIX}` on the wire |
+| `legacy_wire_types` | Optional deprecated inbound aliases; omit for new modules |
 | `on_inbound_rs` | Called for RS wire messages when the module is enabled |
 | `sync_pending` | Called from the background sync worker with all enabled peers |
 | `list_unsynced` | Optional callback returning `(record_key, label)` pairs for admin **List Unsynced Data** |
 | `sync_status_lines` | Optional callback receiving `ModuleSyncStatus`; return custom lines for **Administration → Modules → Module Sync Status** |
+
+**Collision rules:** duplicate expanded wire types are rejected at module load (logged; the conflicting registration is skipped). Core RS types (`BULLETIN`, `MAIL`, `CHUNK`, etc.) cannot be registered. Use `ctx.sync_wire_type(suffix)` when building outbound messages.
 
 **Gating:** inbound and outbound module sync are skipped when the module is disabled in SysAdmin. Per-peer module flags are configured under **Administration → Sync Peers** (rsv1 only).
 

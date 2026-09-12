@@ -56,8 +56,8 @@ class TestSyncPeerModuleGating:
         _register_sync(
             interface.module_manager,
             1,
-            record_type="module:test",
-            wire_types=("TESTEVENT",),
+            record_type="module:node_info",
+            wire_suffixes=("EVENT",),
             on_inbound_rs=lambda *_args: None,
         )
         return interface, peer_a, peer_b
@@ -68,7 +68,7 @@ class TestSyncPeerModuleGating:
         db_operations.set_sync_peer_module_flags(peer_id, 1, sync_out="N", ingest_in="Y")
 
         pending = get_pending_sync_peers(
-            "module:test",
+            "module:node_info",
             "key1",
             interface.sync_peers,
             interface,
@@ -81,13 +81,13 @@ class TestSyncPeerModuleGating:
         peer_id = db_operations._peer_id_for_bbs_node("!peer_a")
         db_operations.set_sync_peer_module_flags(peer_id, 1, sync_out="Y", ingest_in="N")
 
-        assert not peer_accepts_inbound_sync(peer_a, "module:test", interface)
+        assert not peer_accepts_inbound_sync(peer_a, "module:node_info", interface)
 
     def test_tc2_peer_blocked_for_module_sync(self, temp_db):
         interface, _peer_a, peer_b = self._setup()
 
-        assert not peer_sync_enabled(peer_b, "module:test", interface)
-        assert not peer_accepts_inbound_sync(peer_b, "module:test", interface)
+        assert not peer_sync_enabled(peer_b, "module:node_info", interface)
+        assert not peer_accepts_inbound_sync(peer_b, "module:node_info", interface)
 
     def test_inbound_rs_skipped_when_ingest_disabled(self, temp_db):
         interface, _peer_a, _peer_b = self._setup()
@@ -98,7 +98,7 @@ class TestSyncPeerModuleGating:
             lambda *_args: received.append(True)
         )
 
-        message = build_rs_message(1, "TESTEVENT", {"uid": "abc123"})
+        message = build_rs_message(1, "NODE_INFO_EVENT", {"uid": "abc123"})
         _process_rs_sync_message(0, message, interface, "!peer_a")
 
         assert received == []

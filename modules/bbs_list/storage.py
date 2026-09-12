@@ -9,7 +9,13 @@ _MODULE_DIR = Path(__file__).resolve().parent
 DB_PATH = None
 
 RECORD_TYPE = "module:bbs_list"
-WIRE_TYPE = "BBSLIST"
+WIRE_SUFFIX = "SYNC"
+
+
+def wire_type():
+    from rsmesh_bbs.module_sync import build_module_wire_type
+
+    return build_module_wire_type("bbs_list", WIRE_SUFFIX)
 
 
 def configure(module_dir=None):

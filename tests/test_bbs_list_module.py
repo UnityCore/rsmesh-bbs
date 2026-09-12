@@ -11,6 +11,7 @@ if str(MODULES_DIR) not in sys.path:
 from bbs_list import module as bbs_list_module
 from bbs_list import storage
 from rsmesh_bbs import db_operations
+from rsmesh_bbs.message_processing import _process_rs_sync_message
 from rsmesh_bbs.mock_interface import MockMeshInterface
 from rsmesh_bbs.module_loader import ModuleManager
 from rsmesh_bbs.module_sync import (
@@ -85,7 +86,7 @@ class TestBbsListSync:
             ModuleSyncRegistration(
                 module_id=4,
                 record_type=storage.RECORD_TYPE,
-                wire_types=(storage.WIRE_TYPE,),
+                wire_suffixes=(storage.WIRE_SUFFIX,),
                 on_inbound_rs=bbs_list_module.Module()._ingest_bbs_list_rs,
                 sync_pending=bbs_list_module.Module()._sync_pending_bbs_list,
                 list_unsynced=storage.list_unsynced_items,
@@ -113,7 +114,7 @@ class TestBbsListSync:
         bbs_list_module.Module()._sync_pending_bbs_list(interface.sync_peers, interface)
 
         assert len(sent) == 1
-        assert "BBSLIST" in sent[0][1]
+        assert "BBS_LIST_SYNC" in sent[0][1]
         pending = get_pending_sync_peers(
             storage.RECORD_TYPE,
             "!local0001",
@@ -121,6 +122,27 @@ class TestBbsListSync:
             interface,
         )
         assert pending == []
+
+    def test_inbound_sync_accepts_current_wire_type(self, temp_db, bbs_list_db):
+        db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1")
+        interface = MockMeshInterface()
+        interface.module_manager = ModuleManager()
+        self._register(interface.module_manager)
+        db_operations.reload_sync_peers(interface)
+
+        payload = {
+            "uid": "!remote02",
+            "bn": "Current Wire BBS",
+            "sn": "CUR1",
+            "loc": "",
+            "si": "N",
+        }
+        message = build_rs_message(1, storage.wire_type(), payload)
+        _process_rs_sync_message(0, message, interface, "!peer_a")
+
+        entry = storage.get_entry("!remote02")
+        assert entry is not None
+        assert entry["board_name"] == "Current Wire BBS"
 
     def test_inbound_sync_upserts_entry(self, temp_db, bbs_list_db):
         db_operations.add_sync_peer("!peer_a", sync_protocol="rsv1")
@@ -136,17 +158,8 @@ class TestBbsListSync:
             "loc": "Elsewhere",
             "si": "Y",
         }
-        message = build_rs_message(1, storage.WIRE_TYPE, payload)
-        wire_version, msg_type, fields = __import__(
-            "rsmesh_bbs.module_sync", fromlist=["decode_module_rs_payload"]
-        ).decode_module_rs_payload(message)
-
-        bbs_list_module.Module()._ingest_bbs_list_rs(
-            msg_type,
-            fields,
-            "!peer_a",
-            interface,
-        )
+        message = build_rs_message(1, storage.wire_type(), payload)
+        _process_rs_sync_message(0, message, interface, "!peer_a")
 
         entry = storage.get_entry("!remote01")
         assert entry is not None

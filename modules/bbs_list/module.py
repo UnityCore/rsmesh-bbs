@@ -23,7 +23,7 @@ class Module:
             ModuleSyncRegistration(
                 module_id=ctx.id,
                 record_type=storage.RECORD_TYPE,
-                wire_types=(storage.WIRE_TYPE,),
+                wire_suffixes=(storage.WIRE_SUFFIX,),
                 on_inbound_rs=self._ingest_bbs_list_rs,
                 sync_pending=self._sync_pending_bbs_list,
                 list_unsynced=storage.list_unsynced_items,
@@ -104,8 +104,6 @@ class Module:
         )
 
     def _ingest_bbs_list_rs(self, msg_type, fields, sender_node_id, interface):
-        if msg_type != storage.WIRE_TYPE:
-            return
         if not storage.upsert_from_wire(fields):
             return
         node_hex = storage.normalize_node_hex(fields.get("uid"))
@@ -127,7 +125,7 @@ class Module:
             )
             if not pending:
                 continue
-            message = build_rs_message(1, storage.WIRE_TYPE, storage.entry_to_wire(entry))
+            message = build_rs_message(1, storage.wire_type(), storage.entry_to_wire(entry))
             synced = []
             for peer in pending:
                 if send_sync_message(

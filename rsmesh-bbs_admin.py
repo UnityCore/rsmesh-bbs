@@ -1566,15 +1566,67 @@ def _sys_config_section_rows(cfg_section):
 
 
 def _edit_sys_config_value(page_title, cfg_section, cfg_key, cfg_value):
+    from rsmesh_bbs.sys_config_fields import (
+        bool_value_to_yn,
+        get_field_spec,
+        validate_sys_config_value,
+    )
+
+    spec = get_field_spec(cfg_section, cfg_key)
+    field_type = spec.get("type", "string")
     begin_form_screen(page_title)
     print_bold(f"Key: {cfg_key}")
-    new_value = input_bold(f"Value [{cfg_value}]: ").strip()
-    if not new_value or new_value == cfg_value:
-        clear_screen()
+
+    if field_type == "bool":
+        current_yn = bool_value_to_yn(cfg_value)
+        entered = input_bold(f"Value (Y/N) [{current_yn}]: ").strip()
+        if not entered:
+            clear_screen()
+            return cfg_value
+        candidate = _normalize_yn(entered, current_yn)
+        valid, normalized, error = validate_sys_config_value(cfg_section, cfg_key, candidate)
+    elif field_type == "enum":
+        allowed = ", ".join(spec.get("values", ()))
+        print_bold(f"Valid values: {allowed}")
+        entered = input_bold(f"Value [{cfg_value}]: ").strip()
+        if not entered or entered == cfg_value:
+            clear_screen()
+            return cfg_value
+        valid, normalized, error = validate_sys_config_value(cfg_section, cfg_key, entered)
+    elif field_type == "int":
+        entered = input_bold(f"Value [{cfg_value}]: ").strip()
+        if not entered or entered == cfg_value:
+            clear_screen()
+            return cfg_value
+        valid, normalized, error = validate_sys_config_value(cfg_section, cfg_key, entered)
+    elif field_type == "node_id":
+        entered = input_bold(
+            f"Node ID (! + 8 hex digits, empty for connected radio) [{cfg_value}]: "
+        ).strip()
+        if entered == cfg_value:
+            clear_screen()
+            return cfg_value
+        valid, normalized, error = validate_sys_config_value(cfg_section, cfg_key, entered)
+    elif field_type == "short_name":
+        entered = input_bold(f"Short name (1-4 chars, empty for connected radio) [{cfg_value}]: ").strip()
+        if entered == cfg_value:
+            clear_screen()
+            return cfg_value
+        valid, normalized, error = validate_sys_config_value(cfg_section, cfg_key, entered)
+    else:
+        entered = input_bold(f"Value [{cfg_value}]: ").strip()
+        if not entered or entered == cfg_value:
+            clear_screen()
+            return cfg_value
+        valid, normalized, error = validate_sys_config_value(cfg_section, cfg_key, entered)
+
+    if not valid:
+        _finish_action_message(error or "Invalid value.", page_title)
+        prompt_continue()
         return cfg_value
-    if update_sys_config_entry(cfg_section, cfg_key, new_value):
+    if update_sys_config_entry(cfg_section, cfg_key, normalized):
         clear_screen()
-        return new_value
+        return normalized
     _finish_action_message("Configuration entry not found.", page_title)
     prompt_continue()
     return cfg_value
