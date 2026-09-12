@@ -25,6 +25,23 @@ class TestMainMenuValidation:
         assert mesh_ui.load_main_menu_body() == "CUSTOM MENU\n"
 
 
+class TestMainMenuAlignment:
+    def test_second_column_aligns_across_rows(self, temp_db):
+        _seed()
+        conn = db_operations.get_db_connection()
+        conn.execute(
+            "UPDATE modules SET enabled = 'Y', main_menu_visible = 'Y' "
+            "WHERE module_dir IN ('fortune', 'node_info')"
+        )
+        conn.commit()
+        body = mesh_ui.build_main_menu_body()
+        channels_line = next(line for line in body.splitlines() if "[C]hannels" in line)
+        modules_line = next(line for line in body.splitlines() if "M[o]dules" in line)
+        assert channels_line.index("[C]hannels") == modules_line.index("M[o]dules")
+        info_line = next(line for line in body.splitlines() if "Node [I]nfo" in line)
+        assert channels_line.index("[C]hannels") == info_line.index("Node [I]nfo")
+
+
 class TestMainMenuModules:
     def _disable_default_modules(self):
         conn = db_operations.get_db_connection()

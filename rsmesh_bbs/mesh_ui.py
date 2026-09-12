@@ -187,17 +187,27 @@ def _format_module_label(module_name, menu_option):
     return ModuleManager._format_module_menu_line(module_name, menu_option)
 
 
-def _format_two_column(labels):
+def _left_column_width(row_groups):
+    """Widest first-column label across all two-column menu rows."""
+    width = 0
+    for group in row_groups:
+        if len(group) >= 2:
+            width = max(width, len(group[0]))
+    return width
+
+
+def _format_two_column(labels, left_width=None):
     if not labels:
         return []
-    width = max(len(label) for label in labels)
+    if left_width is None:
+        left_width = max(len(label) for label in labels)
     lines = []
     index = 0
     while index < len(labels):
         left = labels[index]
         right = labels[index + 1] if index + 1 < len(labels) else None
         if right is not None:
-            lines.append(f"{left:<{width}} {right}")
+            lines.append(f"{left:<{left_width}} {right}")
             index += 2
         else:
             lines.append(left)
@@ -237,9 +247,10 @@ def build_main_menu_body():
 
     row_groups.append([MENU_LABELS["X"]])
 
+    left_width = _left_column_width(row_groups)
     lines = []
     for group in row_groups:
-        lines.extend(_format_two_column(group))
+        lines.extend(_format_two_column(group, left_width=left_width))
     return "\n".join(lines) + ("\n" if lines else "")
 
 
