@@ -1,9 +1,12 @@
 TODO for Release 1.1
 ====================
 
-Status summary (2026-09-11)
-  - Core Services Phase A: done (admin toggles, sync/schedule bypass, admin menu gating)
-  - Dynamic Main Menu: partial (cached mesh_ui/main_menu.txt, M/O layout, mail submenu)
+Status summary (2026-09-12)
+  - Core Services Phase A: done (admin toggles, sync/schedule bypass, admin menu gating,
+    mesh main menu hides B/C/M when service off; freed keys for modules)
+  - Dynamic Main Menu: done (cached mesh_ui/main_menu.txt, promotion, suppress rules,
+    per-menu module key validation, deferred admin regen, sysop guide)
+  - Admin status displays: done (splash/System Status core services line; tighter banner spacing)
   - Module sync framework: not started
   - Admin System Configuration refactor: not started
   - Device Blacklist: not started (moved to 1.2 backlog below)
@@ -14,9 +17,10 @@ Status summary (2026-09-11)
       - Store in sys_config (bbs.core_bulletins, bbs.core_mail, bbs.core_channels);
         seed from config.yml on first run / upgrade
     - When a core service is OFF:
-      - Mesh: core handler skipped; menu keys B/C/M remain visible for optional module
-        overrides (M hidden when Mail off); disabled core keys route to module on_menu_option
-        match, else redraw main menu (no "not available" message)
+      - Mesh: core handler skipped; matching main-menu key (B/C/M) hidden; freed letter
+        available for an enabled module (auto-promoted to main menu without main_menu_visible)
+      - Disabled core keys still route to module on_menu_option match, else redraw main menu
+        (no "not available" message)
       - Sync outbound: sync_pending_records, sync_*_record, delete sync skip that type
       - Sync inbound: ignore BULLETIN| / MAIL| / CHANNEL| and rsv1 equivalents
       - Schedule: purge_deleted_bulletins / purge_deleted_channels skip when disabled
@@ -30,15 +34,20 @@ Status summary (2026-09-11)
     - Regenerate cache on core-service / module-flag / suppress toggle; copy prior file to mesh_ui/main_menu.old
     - 1.1 layout: [B]ulletins/[C]hannels, [M]ail/M[o]dules, E[X]IT
     - [M]ail submenu: [R]ead Mail, [S]end Mail, E[X]IT
-    - Hide [M]ail on main menu when Mail core service is off
+    - Hide [B]ulletins / [M]ail / [C]hannels on main menu when matching core service is off
     - dispatch_main_menu_key: core handler, main-menu module key, or module override for B/C/M
     - Admin: Administration -> Regenerate Main Menu (manual rewrite of cache)
+    - Defer menu regen while inside Administration; single regen on exit / startup
     - Operator edit of main_menu.txt with invalid/oversized fallback to auto-generated body
     - Module keys on main menu (per-module main_menu_visible on modules table)
     - Validate menu_option against main-menu reserved keys only (O/X always; B/C/M when core service on; submenu keys per-menu)
-    - Suppress M[O]dules submenu (bbs.suppress_modules_menu)
-    - Hide M[O]dules when no enabled modules need the aggregator submenu
-    - Driven by enabled modules + suppress/hide Modules rules (not only core services)
+    - Suppress M[O]dules submenu (bbs.suppress_modules_menu):
+      - Off (default): M[O]dules lists all enabled modules even if also on main menu
+      - On: hide M[O]dules when every enabled module is on main menu; omit duplicates in submenu
+      - Admin rejects enabling suppress while any enabled module is not on main menu
+    - Hide M[O]dules when there are no enabled modules (suppress ignored)
+    - Hide M[O]dules when suppress on and every enabled module is on main menu (disabled modules ignored)
+    - docs/RSMESH-BBS-SYSOP-GUIDE.md: mesh main menu, per-menu letters, suppress behavior
 
 - Admin System Configuration refactor [NOT STARTED]
     - Today: Administration -> System Configuration is generic CRUD on sys_config
