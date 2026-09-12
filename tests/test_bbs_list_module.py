@@ -1,6 +1,6 @@
+import sqlite3
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -54,6 +54,7 @@ class TestBbsListStorage:
 
     def test_format_list_line(self, bbs_list_db):
         local_entry = {
+            "id": 1,
             "short_name": "RSNA",
             "board_name": "RSMesh BBS",
             "node_hex": "!9e9d8704",
@@ -62,6 +63,7 @@ class TestBbsListStorage:
             "is_local": "Y",
         }
         remote_entry = {
+            "id": 2,
             "short_name": "RMT1",
             "board_name": "Remote BBS",
             "node_hex": "!remote01",
@@ -70,11 +72,74 @@ class TestBbsListStorage:
             "is_local": "N",
         }
         assert storage.format_list_line(local_entry) == (
-            "RSNA  RSMesh BBS  !9e9d8704  Waynedale/Fort Wayne  sync=Y  LocalPost"
+            "RSNA  RSMesh BBS  !9e9d8704  Waynedale/Fort Wayne  sync=Y  local=Y"
         )
         assert storage.format_list_line(remote_entry) == (
-            "RMT1  Remote BBS  !remote01  -  sync=N  RemotePost"
+            "RMT1  Remote BBS  !remote01  -  sync=N  local=N"
         )
+
+    def test_format_mesh_list_line_truncates_location(self, bbs_list_db):
+        entry = {
+            "id": 3,
+            "short_name": "RSNA",
+            "board_name": "RSMesh BBS",
+            "node_hex": "!9e9d8704",
+            "location": "Waynedale/Fort Wayne Indiana",
+            "sync_interest": "Y",
+            "is_local": "Y",
+        }
+        assert storage.format_mesh_list_line(entry) == (
+            "3  RSNA  RSMesh BBS  !9e9d8704  Waynedale/Fort… *"
+        )
+        assert storage.format_list_line(entry) == (
+            "RSNA  RSMesh BBS  !9e9d8704  Waynedale/Fort Wayne Indiana  sync=Y  local=Y"
+        )
+
+    def test_get_entry_by_id(self, bbs_list_db):
+        entry_id = storage.upsert_entry(
+            "Alpha BBS",
+            "!aabbcc01",
+            "ALPH",
+            location="Denver, CO",
+            sync_interest="Y",
+            is_local="Y",
+        )
+        entry = storage.get_entry_by_id(entry_id)
+        assert entry is not None
+        assert entry["id"] == entry_id
+        assert entry["node_hex"] == "!aabbcc01"
+        assert storage.get_entry_by_id("999") is None
+
+    def test_legacy_schema_migration_assigns_ids(self, tmp_path, monkeypatch):
+        db_path = tmp_path / "legacy_bbs_list.db"
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            """CREATE TABLE bbs_entries (
+                   node_hex TEXT PRIMARY KEY,
+                   board_name TEXT NOT NULL,
+                   short_name TEXT NOT NULL,
+                   location TEXT,
+                   sync_interest TEXT NOT NULL DEFAULT 'N',
+                   is_local TEXT NOT NULL DEFAULT 'N',
+                   updated INTEGER NOT NULL
+               )"""
+        )
+        conn.execute(
+            """INSERT INTO bbs_entries
+               (node_hex, board_name, short_name, location, sync_interest, is_local, updated)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            ("!legacy01", "Legacy BBS", "LEG1", "Old Town", "Y", "Y", 1),
+        )
+        conn.commit()
+        conn.close()
+
+        monkeypatch.setattr(storage, "DB_PATH", str(db_path))
+        storage.setup_db()
+
+        entry = storage.get_entry_by_id(1)
+        assert entry is not None
+        assert entry["board_name"] == "Legacy BBS"
+        assert entry["node_hex"] == "!legacy01"
 
     def test_wire_roundtrip(self, bbs_list_db):
         storage.upsert_entry(

@@ -9,6 +9,18 @@ DB_PATH = None
 
 RECORD_TYPE = "module:bbs_list"
 WIRE_SUFFIX = "SYNC"
+MESH_LOCATION_MAX_LEN = 16
+
+_CREATE_TABLE_SQL = """CREATE TABLE IF NOT EXISTS bbs_entries (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               node_hex TEXT NOT NULL UNIQUE,
+               board_name TEXT NOT NULL,
+               short_name TEXT NOT NULL,
+               location TEXT,
+               sync_interest TEXT NOT NULL DEFAULT 'N',
+               is_local TEXT NOT NULL DEFAULT 'N',
+               updated INTEGER NOT NULL
+           )"""
 
 
 def wire_type():
@@ -32,12 +44,21 @@ def _connect():
     return conn
 
 
-def setup_db():
-    conn = _connect()
-    c = conn.cursor()
-    c.execute(
-        """CREATE TABLE IF NOT EXISTS bbs_entries (
-               node_hex TEXT PRIMARY KEY,
+def _table_columns(cursor, table_name):
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    return [row[1] for row in cursor.fetchall()]
+
+
+def _migrate_legacy_schema(cursor):
+    columns = _table_columns(cursor, "bbs_entries")
+    if not columns:
+        return
+    if "id" in columns:
+        return
+    cursor.execute(
+        """CREATE TABLE bbs_entries_new (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               node_hex TEXT NOT NULL UNIQUE,
                board_name TEXT NOT NULL,
                short_name TEXT NOT NULL,
                location TEXT,
@@ -46,6 +67,22 @@ def setup_db():
                updated INTEGER NOT NULL
            )"""
     )
+    cursor.execute(
+        """INSERT INTO bbs_entries_new
+           (node_hex, board_name, short_name, location, sync_interest, is_local, updated)
+           SELECT node_hex, board_name, short_name, location, sync_interest, is_local, updated
+           FROM bbs_entries
+           ORDER BY rowid"""
+    )
+    cursor.execute("DROP TABLE bbs_entries")
+    cursor.execute("ALTER TABLE bbs_entries_new RENAME TO bbs_entries")
+
+
+def setup_db():
+    conn = _connect()
+    c = conn.cursor()
+    c.execute(_CREATE_TABLE_SQL)
+    _migrate_legacy_schema(c)
     c.execute(
         "CREATE INDEX IF NOT EXISTS idx_bbs_entries_sync "
         "ON bbs_entries(sync_interest, board_name COLLATE NOCASE)"
@@ -71,17 +108,28 @@ def normalize_sync_interest(value):
     return "Y" if (value or "").strip().upper() == "Y" else "N"
 
 
+def _parse_entry_id(value):
+    try:
+        entry_id = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    if entry_id <= 0:
+        return None
+    return entry_id
+
+
 def _row_to_entry(row):
     if row is None:
         return None
     return {
-        "node_hex": row[0],
-        "board_name": row[1],
-        "short_name": row[2],
-        "location": row[3] or "",
-        "sync_interest": row[4],
-        "is_local": row[5],
-        "updated": row[6],
+        "id": row[0],
+        "node_hex": row[1],
+        "board_name": row[2],
+        "short_name": row[3],
+        "location": row[4] or "",
+        "sync_interest": row[5],
+        "is_local": row[6],
+        "updated": row[7],
     }
 
 
@@ -90,18 +138,34 @@ def list_entries(sync_only=False):
     c = conn.cursor()
     if sync_only:
         c.execute(
-            "SELECT node_hex, board_name, short_name, location, sync_interest, is_local, updated "
+            "SELECT id, node_hex, board_name, short_name, location, sync_interest, is_local, updated "
             "FROM bbs_entries WHERE sync_interest = 'Y' "
-            "ORDER BY board_name COLLATE NOCASE, node_hex"
+            "ORDER BY id"
         )
     else:
         c.execute(
-            "SELECT node_hex, board_name, short_name, location, sync_interest, is_local, updated "
-            "FROM bbs_entries ORDER BY board_name COLLATE NOCASE, node_hex"
+            "SELECT id, node_hex, board_name, short_name, location, sync_interest, is_local, updated "
+            "FROM bbs_entries ORDER BY id"
         )
     rows = [_row_to_entry(row) for row in c.fetchall()]
     conn.close()
     return rows
+
+
+def get_entry_by_id(entry_id):
+    entry_id = _parse_entry_id(entry_id)
+    if entry_id is None:
+        return None
+    conn = _connect()
+    c = conn.cursor()
+    c.execute(
+        "SELECT id, node_hex, board_name, short_name, location, sync_interest, is_local, updated "
+        "FROM bbs_entries WHERE id = ?",
+        (entry_id,),
+    )
+    row = _row_to_entry(c.fetchone())
+    conn.close()
+    return row
 
 
 def get_entry(node_hex):
@@ -111,7 +175,7 @@ def get_entry(node_hex):
     conn = _connect()
     c = conn.cursor()
     c.execute(
-        "SELECT node_hex, board_name, short_name, location, sync_interest, is_local, updated "
+        "SELECT id, node_hex, board_name, short_name, location, sync_interest, is_local, updated "
         "FROM bbs_entries WHERE node_hex = ?",
         (node_hex,),
     )
@@ -135,7 +199,7 @@ def upsert_entry(
     sync_interest = normalize_sync_interest(sync_interest)
     is_local = "Y" if (is_local or "N").strip().upper() == "Y" else "N"
     if not node_hex or not board_name or not short_name:
-        return False
+        return None
 
     conn = _connect()
     c = conn.cursor()
@@ -160,9 +224,24 @@ def upsert_entry(
             int(time.time()),
         ),
     )
+    c.execute("SELECT id FROM bbs_entries WHERE node_hex = ?", (node_hex,))
+    row = c.fetchone()
     conn.commit()
     conn.close()
-    return True
+    return row[0] if row else None
+
+
+def delete_entry_by_id(entry_id):
+    entry_id = _parse_entry_id(entry_id)
+    if entry_id is None:
+        return False
+    conn = _connect()
+    c = conn.cursor()
+    c.execute("DELETE FROM bbs_entries WHERE id = ?", (entry_id,))
+    deleted = c.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
 
 
 def delete_entry(node_hex):
@@ -181,7 +260,7 @@ def delete_entry(node_hex):
 def upsert_from_wire(fields):
     node_hex = normalize_node_hex(fields.get("uid"))
     if not node_hex:
-        return False
+        return None
     return upsert_entry(
         board_name=(fields.get("bn") or "").strip(),
         node_hex=node_hex,
@@ -203,35 +282,55 @@ def entry_to_wire(entry):
 
 
 def list_unsynced_items():
-    return [(entry["node_hex"], entry["board_name"]) for entry in list_entries()]
+    return [
+        (entry["node_hex"], f"{entry['id']} {entry['board_name']}")
+        for entry in list_entries()
+    ]
 
 
-def _list_source_label(entry):
-    return "LocalPost" if entry["is_local"] == "Y" else "RemotePost"
+def _mesh_location_label(location):
+    text = (location or "").strip() or "-"
+    if len(text) <= MESH_LOCATION_MAX_LEN:
+        return text
+    if MESH_LOCATION_MAX_LEN <= 1:
+        return text[:MESH_LOCATION_MAX_LEN]
+    return text[: MESH_LOCATION_MAX_LEN - 1].rstrip() + "…"
 
 
 def format_list_line(entry):
+    """Admin list line: all fields, full location."""
     location = entry["location"] or "-"
-    sync_label = f"sync={entry['sync_interest']}"
     parts = [
         entry["short_name"],
         entry["board_name"],
         entry["node_hex"],
         location,
-        sync_label,
-        _list_source_label(entry),
+        f"sync={entry['sync_interest']}",
+        f"local={entry['is_local']}",
     ]
     return "  ".join(parts)
 
 
 def format_mesh_list_line(entry):
-    return format_list_line(entry)
+    """Mesh list line: list ID, short name, board name, node, truncated location, sync *."""
+    parts = [
+        str(entry["id"]),
+        entry["short_name"],
+        entry["board_name"],
+        entry["node_hex"],
+        _mesh_location_label(entry.get("location")),
+    ]
+    line = "  ".join(parts)
+    if entry.get("sync_interest") == "Y":
+        line += " *"
+    return line
 
 
 def format_mesh_detail(entry):
     sync_label = "Yes" if entry["sync_interest"] == "Y" else "No"
     local_label = "Yes" if entry["is_local"] == "Y" else "No"
     lines = [
+        f"ID: {entry['id']}",
         f"Board: {entry['board_name']}",
         f"Node: {entry['node_hex']}",
         f"Short: {entry['short_name']}",

@@ -408,7 +408,7 @@ Enable under **Administration → Modules**. By default, users open modules from
 | **Fortune** | `F` (default) | Shows a random fortune on entry; any message fetches another; `X` exits |
 | **Node Info** | (per `modules` table) | `[N]odes` counts by time window, `[H]ardware` model counts, `[R]oles` role counts; sysadmins also get `[L]ist Nodes` (detailed signal/GPS lines) |
 | **Example Hello** | (disabled by default) | Greets on entry; demonstrates visits DB and scheduled greetings |
-| **BBS List** | `L` (default) | Browse known mesh BBS boards; `sync=Y` marks sync interest; `LocalPost` / `RemotePost` shows entry source; enter node ID for details; `[A]ll` / `[S]ync` lists |
+| **BBS List** | `L` (default) | Browse known mesh BBS boards; mesh lines start with list ID, short name, board name, node ID, and truncated location; `*` marks sync interest; enter list ID for details; `[A]ll` / `[S]ync` lists. Admin lists show full location plus `sync=Y/N` and `local=Y/N`. |
 
 Fortune has no admin screen. Node Info admin is view-only (**List Node Info**). **BBS List** admin supports register-this-BBS, add/edit/delete entries, and sync-interested list. See [Module development](RSMESH-BBS-DEVELOPER-GUIDE.md#modules) in the Developer Guide.
 

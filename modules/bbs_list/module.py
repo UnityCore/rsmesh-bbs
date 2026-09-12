@@ -50,9 +50,7 @@ class Module:
             self._send_help(sender_id, ctx)
             return MODULE_RESULT_CONTINUE
 
-        entry = storage.get_entry(text)
-        if entry is None and not text.startswith("!"):
-            entry = storage.get_entry("!" + text)
+        entry = storage.get_entry_by_id(text) if text.isdigit() else None
         if entry is not None:
             ctx.send_user_message(
                 sender_id,
@@ -64,7 +62,7 @@ class Module:
 
         ctx.send_user_message(
             sender_id,
-            "Enter a node ID to view details, or A/S/?/X.\n"
+            "Enter list ID to view details, or A/S/?/X.\n"
             "[A]ll  [S]ync  [?]Help  E[X]IT",
         )
         return MODULE_RESULT_CONTINUE
@@ -84,7 +82,7 @@ class Module:
         header = (
             f"= {ctx.module_name} =\n"
             f"{title} ({len(entries)}).\n"
-            "Enter node ID for details."
+            "Enter list ID for details."
         )
         body_lines = [storage.format_mesh_list_line(entry) for entry in entries]
         footer = "[A]ll  [S]ync  [?]Help  E[X]IT"
@@ -98,8 +96,8 @@ class Module:
             sender_id,
             f"= {ctx.module_name} =\n"
             "Directory of mesh BBS boards.\n"
-            "sync=Y marks sync interest; LocalPost/RemotePost = source.\n"
-            "[A]ll list  [S]ync list  node ID view\n"
+            "* marks sync interest on list lines.\n"
+            "[A]ll list  [S]ync list  list ID view\n"
             "E[X]IT return to main menu",
         )
 

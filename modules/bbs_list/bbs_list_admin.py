@@ -44,18 +44,22 @@ def add_entry():
             "BBS List : Add Entry",
         )
         return
-    if not storage.upsert_entry(
+    entry_id = storage.upsert_entry(
         board_name,
         node_hex,
         short_name,
         location=location,
         sync_interest=sync_interest,
         is_local="Y",
-    ):
+    )
+    if entry_id is None:
         admin_ui.finish_action_message("Could not add BBS entry.", "BBS List : Add Entry")
         return
     bbs_list_module.queue_entry_sync(node_hex)
-    admin_ui.finish_action_message(f"BBS entry {board_name} added.", "BBS List : Add Entry")
+    admin_ui.finish_action_message(
+        f"BBS entry {board_name} added (ID {entry_id}).",
+        "BBS List : Add Entry",
+    )
 
 
 def register_this_bbs():
@@ -77,14 +81,15 @@ def register_this_bbs():
             "BBS List : Register This BBS",
         )
         return
-    if not storage.upsert_entry(
+    entry_id = storage.upsert_entry(
         board_name,
         node_hex,
         short_name,
         location=location,
         sync_interest=sync_interest,
         is_local="Y",
-    ):
+    )
+    if entry_id is None:
         admin_ui.finish_action_message(
             "Could not register this BBS.",
             "BBS List : Register This BBS",
@@ -92,7 +97,7 @@ def register_this_bbs():
         return
     bbs_list_module.queue_entry_sync(node_hex)
     admin_ui.finish_action_message(
-        f"This BBS ({board_name}) registered in the directory.",
+        f"This BBS ({board_name}) registered in the directory (ID {entry_id}).",
         "BBS List : Register This BBS",
     )
 
@@ -104,8 +109,8 @@ def edit_entry():
         return False
 
     admin_ui.begin_form_screen("BBS List : Edit Entry")
-    node_hex = admin_ui.input_bold("Node hex ID to edit: ").strip()
-    entry = storage.get_entry(node_hex)
+    entry_id = admin_ui.input_bold("Entry ID to edit: ").strip()
+    entry = storage.get_entry_by_id(entry_id)
     if entry is None:
         admin_ui.finish_action_message("BBS entry not found.", "BBS List : Edit Entry")
         return
@@ -117,31 +122,36 @@ def edit_entry():
         admin_ui.input_bold(f"Sync interest (Y/N) [{entry['sync_interest']}]: "),
         entry["sync_interest"],
     )
-    if not storage.upsert_entry(
+    updated_id = storage.upsert_entry(
         board_name or entry["board_name"],
         entry["node_hex"],
         short_name or entry["short_name"],
         location=location if location else entry["location"],
         sync_interest=sync_interest,
         is_local=entry["is_local"],
-    ):
+    )
+    if updated_id is None:
         admin_ui.finish_action_message("Could not update BBS entry.", "BBS List : Edit Entry")
         return
     bbs_list_module.queue_entry_sync(entry["node_hex"])
     admin_ui.finish_action_message(
-        f"BBS entry {entry['node_hex']} updated.",
+        f"BBS entry ID {updated_id} updated.",
         "BBS List : Edit Entry",
     )
 
 
 def delete_entry():
     admin_ui.begin_form_screen("BBS List : Delete Entry")
-    node_hex = admin_ui.input_bold("Node hex ID to delete: ").strip()
-    if not storage.delete_entry(node_hex):
+    entry_id = admin_ui.input_bold("Entry ID to delete: ").strip()
+    entry = storage.get_entry_by_id(entry_id)
+    if entry is None:
+        admin_ui.finish_action_message("BBS entry not found.", "BBS List : Delete Entry")
+        return
+    if not storage.delete_entry_by_id(entry["id"]):
         admin_ui.finish_action_message("BBS entry not found.", "BBS List : Delete Entry")
         return
     admin_ui.finish_action_message(
-        f"BBS entry {storage.normalize_node_hex(node_hex)} deleted.",
+        f"BBS entry ID {entry['id']} deleted.",
         "BBS List : Delete Entry",
     )
 
